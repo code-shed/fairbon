@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    # Der Scheduler und SQLite (WAL) brauchen Zeit fuer einen sauberen Shutdown.
+    stop_grace_period: 30s
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Mandatory: keep the SQLite file on the persistent bind mount.
+      SUPERMARKET_DATABASE_PATH: /app/data/supermarkt.db
+    volumes:
+      # Persistent database + WAL/SHM files; survives rebuilds.
+      - ./data:/app/data
+      # Optional: exportierte DB-Backups auch auf dem Host ablegen.
+      # - ./backups:/app/backups
+      # Optional: keep Tesseract/Python caches between restarts.
+      - app-cache:/app/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  app-cache:

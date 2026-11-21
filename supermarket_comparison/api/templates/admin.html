@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Datenbank · Supermarkt-Preisvergleich</title>
+<style>
+  :root {
+    --bg:#f6f7f5; --surface:#ffffff; --surface-alt:#f2f4f0; --text:#1b211d;
+    --muted:#5a665f; --line:#dfe4dc; --line-strong:#c7cfc6;
+    --accent:#0f6b46; --accent-contrast:#ffffff; --danger:#a3261d;
+    --amber:#7a4a05; --amber-bg:#fbf0d2; --radius:12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0e1110; --surface:#161a18; --surface-alt:#1e2320; --text:#e9eee9;
+      --muted:#9aa8a0; --line:#2a302c; --line-strong:#3a423c;
+      --accent:#3fc284; --accent-contrast:#052112; --danger:#ff9188;
+      --amber:#f7cf6b; --amber-bg:#372a09;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color:var(--accent); text-underline-offset:.18em; }
+  h1, h2 { font-family:ui-serif, Georgia, "Times New Roman", serif; letter-spacing:-.02em; }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 20px; }
+  ::selection { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  header.site { background:var(--surface); border-bottom:1px solid var(--line); padding:22px 0; }
+  .head-row { display:flex; flex-wrap:wrap; gap:12px; align-items:baseline; justify-content:space-between; }
+  .head-row h1 { margin:0; font-size:1.7rem; }
+  .head-row p { margin:2px 0 0; color:var(--muted); font-size:.88rem; }
+  .back { font-size:.88rem; font-weight:600; text-decoration:none; }
+
+  main { padding:24px 0 60px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
+
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+  .tabs button {
+    font:inherit; font-size:.88rem; font-weight:600; cursor:pointer;
+    padding:9px 14px; min-height:40px;
+    color:var(--muted); background:transparent;
+    border:1px solid var(--line); border-radius:999px;
+  }
+  .tabs button[aria-selected="true"] { background:var(--accent); border-color:var(--accent); color:var(--accent-contrast); }
+  .tabs button:hover:not([aria-selected="true"]) { border-color:var(--line-strong); color:var(--text); }
+
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:end; padding:14px 16px; border-bottom:1px solid var(--line); }
+  .field { display:grid; gap:4px; min-width:0; }
+  .field label { font-size:.72rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+  input, select {
+    font:inherit; padding:9px 11px; color:var(--text); background:var(--bg);
+    border:1px solid var(--line); border-radius:9px; min-height:40px;
+  }
+  input::placeholder { color:var(--muted); opacity:1; }
+  .grow { flex:1 1 220px; }
+  .spacer { flex:1 1 auto; }
+  button.primary {
+    font:inherit; font-weight:650; cursor:pointer; padding:10px 16px; min-height:40px;
+    color:var(--accent-contrast); background:var(--accent); border:1px solid transparent; border-radius:9px;
+  }
+  button.secondary {
+    font:inherit; font-weight:600; cursor:pointer; padding:9px 14px; min-height:40px;
+    color:var(--text); background:var(--surface-alt); border:1px solid var(--line); border-radius:9px;
+  }
+  button.danger { color:#fff; background:var(--danger); border-color:var(--danger); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  thead th {
+    position:sticky; top:0; z-index:1;
+    background:var(--surface-alt); color:var(--muted);
+    text-align:left; font-weight:600; padding:9px 12px; white-space:nowrap;
+    border-bottom:1px solid var(--line);
+  }
+  tbody td { padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:hover { background:var(--surface-alt); }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.empty { padding:26px 12px; color:var(--muted); text-align:center; }
+  .badge {
+    display:inline-block; padding:1px 8px; border-radius:999px; font-size:.72rem; font-weight:700;
+    background:var(--surface-alt); border:1px solid var(--line);
+  }
+  .badge.pending_review { background:var(--amber-bg); color:var(--amber); border-color:color-mix(in srgb, var(--amber) 35%, transparent); }
+  .badge.approved, .badge.verified { background:color-mix(in srgb, var(--accent) 14%, var(--surface)); color:var(--accent); }
+  .badge.rejected { color:var(--danger); }
+
+  .pager { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; padding:12px 16px; }
+  .pager p { margin:0; color:var(--muted); font-size:.85rem; }
+
+  .toast {
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    z-index:80; padding:11px 17px; border-radius:10px;
+    background:#101418; color:#fff; font-size:.88rem; box-shadow:0 12px 30px rgba(0,0,0,.3);
+  }
+  .toast.error { background:var(--danger); }
+
+  dialog {
+    border:1px solid var(--line); border-radius:14px; padding:0;
+    width:min(560px, calc(100vw - 32px)); background:var(--surface); color:var(--text);
+  }
+  dialog::backdrop { background:rgba(10,14,12,.45); }
+  .dialog-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .dialog-head h2 { margin:0; font-size:1.15rem; }
+  .dialog-body { padding:16px 20px; display:grid; gap:12px; max-height:60vh; overflow:auto; }
+  .dialog-foot { display:flex; gap:10px; justify-content:flex-end; padding:14px 20px 18px; border-top:1px solid var(--line); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .error { margin:0; color:var(--danger); font-size:.85rem; }
+  @media (max-width:560px) { .dialog-body, .toolbar { padding:12px; } .grid-2 { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header class="site">
+  <div class="wrap head-row">
+    <div>
+      <h1>Datenbank</h1>
+      <p>Einträge prüfen, korrigieren und entfernen.</p>
+    </div>
+    <a class="back" href="/">← Zur Suche</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Tabellen"></nav>
+
+  <section class="card" aria-labelledby="table-title">
+    <h2 id="table-title" class="sr-only" style="position:absolute;left:-9999px">Einträge</h2>
+    <div class="toolbar">
+      <div class="field grow">
+        <label for="q">Suche</label>
+        <input id="q" type="search" placeholder="Produkt, Markt, EAN …" autocomplete="off">
+      </div>
+      <div class="field" id="filter-store-wrap">
+        <label for="filter-store">Markt</label>
+        <input id="filter-store" type="text" placeholder="z. B. lidl" autocomplete="off">
+      </div>
+      <div class="field" id="filter-status-wrap" hidden>
+        <label for="filter-status">Status</label>
+        <select id="filter-status">
+          <option value="">alle</option>
+          <option value="pending">pending</option>
+          <option value="pending_review">pending_review</option>
+          <option value="approved">approved</option>
+          <option value="verified">verified</option>
+          <option value="rejected">rejected</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="page-size">Zeilen</label>
+        <select id="page-size">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <button type="button" class="primary" id="reload">Aktualisieren</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="records">
+        <thead id="records-head"></thead>
+        <tbody id="records-body"></tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <p id="pager-info">–</p>
+      <div>
+        <button type="button" class="secondary" id="prev">Zurück</button>
+        <button type="button" class="secondary" id="next">Weiter</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="edit-dialog" aria-labelledby="edit-title">
+  <form method="dialog" id="edit-form">
+    <div class="dialog-head">
+      <h2 id="edit-title">Eintrag bearbeiten</h2>
+      <button type="button" class="secondary" id="edit-close" aria-label="Schließen">×</button>
+    </div>
+    <div class="dialog-body" id="edit-fields"></div>
+    <p class="error" id="edit-error" hidden></p>
+    <div class="dialog-foot">
+      <button type="button" class="danger" id="edit-delete">Löschen</button>
+      <button type="button" class="secondary" id="edit-cancel">Abbrechen</button>
+      <button type="submit" class="primary" id="edit-save">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  var API = "/api/v1/admin/database";
+  var state = { schema: null, table: "products", page: 1, pageSize: 25, pages: 1, row: null };
+
+  var tabs = document.getElementById("tabs");
+  var head = document.getElementById("records-head");
+  var body = document.getElementById("records-body");
+  var pagerInfo = document.getElementById("pager-info");
+  var dialog = document.getElementById("edit-dialog");
+  var fieldsBox = document.getElementById("edit-fields");
+  var errorBox = document.getElementById("edit-error");
+
+  function euro(value) {
+    if (value === null || value === undefined || value === "") { return "–"; }
+    var number = Number(value);
+    if (!isFinite(number)) { return String(value); }
+    return number.toFixed(2).replace(".", ",") + " €";
+  }
+
+  function isoDate(value) {
+    if (!value) { return "–"; }
+    var text = String(value).slice(0, 10).split("-");
+    return text.length === 3 ? text[2] + "." + text[1] + "." + text[0] : String(value);
+  }
+
+  function toast(message, kind) {
+    var box = document.createElement("div");
+    box.className = "toast" + (kind === "error" ? " error" : "");
+    box.setAttribute("role", "status");
+    box.textContent = message;
+    document.body.appendChild(box);
+    window.setTimeout(function () {
+      if (box.parentNode) { box.parentNode.removeChild(box); }
+    }, 3200);
+  }
+
+  function currentSpec() {
+    var tables = state.schema ? state.schema.tables : [];
+    for (var i = 0; i < tables.length; i += 1) {
+      if (tables[i].name === state.table) { return tables[i]; }
+    }
+    return null;
+  }
+
+  function renderTabs() {
+    tabs.textContent = "";
+    (state.schema ? state.schema.tables : []).forEach(function (table) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = table.label;
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-selected", String(table.name === state.table));
+      button.addEventListener("click", function () {
+        state.table = table.name;
+        state.page = 1;
+        renderTabs();
+        document.getElementById("filter-status-wrap").hidden =
+          table.filters.indexOf("status") < 0;
+        load();
+      });
+      tabs.appendChild(button);
+    });
+  }
+
+  function cellValue(column, value) {
+    if (column.indexOf("price") >= 0) { return euro(value); }
+    if (column.indexOf("_at") >= 0 || column.indexOf("valid_") === 0) {
+      return isoDate(value);
+    }
+    if (value === null || value === undefined || value === "") { return "–"; }
+    return String(value);
+  }
+
+  function renderHead(columns) {
+    head.textContent = "";
+    var row = document.createElement("tr");
+    columns.forEach(function (column) {
+      var th = document.createElement("th");
+      th.textContent = column;
+      if (column.indexOf("price") >= 0) { th.className = "num"; }
+      row.appendChild(th);
+    });
+    var actions = document.createElement("th");
+    actions.textContent = "";
+    row.appendChild(actions);
+    head.appendChild(row);
+  }
+
+  function renderRows(rows, columns) {
+    body.textContent = "";
+    if (!rows.length) {
+      var empty = document.createElement("tr");
+      var td = document.createElement("td");
+      td.colSpan = columns.length + 1;
+      td.className = "empty";
+      td.textContent = "Keine Einträge gefunden.";
+      empty.appendChild(td);
+      body.appendChild(empty);
+      return;
+    }
+    rows.forEach(function (record) {
+      var tr = document.createElement("tr");
+      columns.forEach(function (column) {
+        var td = document.createElement("td");
+        if (column.indexOf("price") >= 0) { td.className = "num"; }
+        if (column === "status") {
+          var badge = document.createElement("span");
+          badge.className = "badge " + String(record[column] || "");
+          badge.textContent = String(record[column] || "–");
+          td.appendChild(badge);
+        } else {
+          td.textContent = cellValue(column, record[column]);
+        }
+        tr.appendChild(td);
+      });
+      var actionTd = document.createElement("td");
+      var edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "secondary";
+      edit.textContent = "Bearbeiten";
+      edit.setAttribute("aria-label", "Eintrag " + record.id + " bearbeiten");
+      edit.addEventListener("click", function () { openEditor(record); });
+      actionTd.appendChild(edit);
+      tr.appendChild(actionTd);
+      body.appendChild(tr);
+    });
+  }
+
+  function load() {
+    var spec = currentSpec();
+    if (!spec) { return; }
+    var params = new URLSearchParams();
+    params.set("table", state.table);
+    params.set("page", String(state.page));
+    params.set("page_size", String(state.pageSize));
+    var q = document.getElementById("q").value.trim();
+    if (q) { params.set("q", q); }
+    var store = document.getElementById("filter-store").value.trim();
+    if (store && spec.filters.indexOf("store") >= 0) { params.set("store", store); }
+    var status = document.getElementById("filter-status").value;
+    if (status && spec.filters.indexOf("status") >= 0) { params.set("status", status); }
+
+    fetch(API + "/records?" + params.toString(), { headers: { Accept: "application/json" } })
+      .then(function (response) {
+        if (!response.ok) { throw new Error("HTTP " + response.status); }
+        return response.json();
+      })
+      .then(function (data) {
+        state.pages = data.pages;
+        renderHead(spec.columns);
+        renderRows(data.rows, spec.columns);
+        pagerInfo.textContent = data.total + " Einträge · Seite " + data.page + " von " + data.pages;
+        document.getElementById("prev").disabled = data.page <= 1;
+        document.getElementById("next").disabled = data.page >= data.pages;
+      })
+      .catch(function () {
+        body.textContent = "";
+        var tr = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = 12;
+        td.className = "empty";
+        td.textContent = "Daten konnten nicht geladen werden.";
+        tr.appendChild(td);
+        body.appendChild(tr);
+      });
+  }
+
+  function fieldInput(definition, value) {
+    var wrap = document.createElement("div");
+    wrap.className = "field";
+    var label = document.createElement("label");
+    label.textContent = definition.name;
+    label.setAttribute("for", "field-" + definition.name);
+    var input;
+    if (definition.type === "status") {
+      input = document.createElement("select");
+      ["pending", "pending_review", "approved", "verified", "rejected"].forEach(function (status) {
+        var option = document.createElement("option");
+        option.value = status;
+        option.textContent = status;
+        input.appendChild(option);
+      });
+      input.value = value || "pending";
+    } else {
+      input = document.createElement("input");
+      input.type = definition.type === "price" || definition.type === "quantity" ? "number" : "text";
+      if (input.type === "number") { input.step = "0.01"; input.min = "0"; }
+      input.value = value === null || value === undefined ? "" : String(value);
+    }
+    input.id = "field-" + definition.name;
+    input.name = definition.name;
+    wrap.appendChild(label);
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  function openEditor(record) {
+    var spec = currentSpec();
+    if (!spec) { return; }
+    state.row = record;
+    fieldsBox.textContent = "";
+    errorBox.hidden = true;
+    spec.editable.forEach(function (definition) {
+      fieldsBox.appendChild(fieldInput(definition, record[definition.name]));
+    });
+    document.getElementById("edit-title").textContent =
+      spec.label + " · Eintrag " + record.id;
+    dialog.showModal();
+  }
+
+  function collectValues() {
+    var spec = currentSpec();
+    var values = {};
+    spec.editable.forEach(function (definition) {
+      var input = document.getElementById("field-" + definition.name);
+      if (!input) { return; }
+      var value = input.value;
+      if (definition.type === "price" || definition.type === "quantity") {
+        values[definition.name] = value === "" ? null : Number(value);
+      } else {
+        values[definition.name] = value;
+      }
+    });
+    return values;
+  }
+
+  function save(event) {
+    event.preventDefault();
+    if (!state.row) { return; }
+    var spec = currentSpec();
+    var button = document.getElementById("edit-save");
+    button.disabled = true;
+    fetch(API + "/records/" + spec.name + "/" + state.row.id, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(collectValues())
+    }).then(function (response) {
+      return response.json().then(function (payload) {
+        if (!response.ok) {
+          throw new Error(payload && payload.detail ? payload.detail : "HTTP " + response.status);
+        }
+        return payload;
+      });
+    }).then(function () {
+      dialog.close();
+      toast("Eintrag erfolgreich aktualisiert ✓");
+      load();
+    }).catch(function (error) {
+      errorBox.textContent = error.message || "Speichern fehlgeschlagen.";
+      errorBox.hidden = false;
+    }).finally(function () {
+      button.disabled = false;
+    });
+  }
+
+  function remove() {
+    if (!state.row) { return; }
+    var spec = currentSpec();
+    if (!window.confirm("Eintrag " + state.row.id + " endgültig löschen?")) { return; }
+    fetch(API + "/records/" + spec.name + "/" + state.row.id, { method: "DELETE" })
+      .then(function (response) {
+        if (!response.ok) { throw new Error("HTTP " + response.status); }
+        dialog.close();
+        toast("Eintrag gelöscht");
+        load();
+      })
+      .catch(function () {
+        toast("Löschen fehlgeschlagen.", "error");
+      });
+  }
+
+  document.getElementById("reload").addEventListener("click", function () {
+    state.page = 1;
+    load();
+  });
+  document.getElementById("q").addEventListener("keydown", function (event) {
+    if (event.key === "Enter") { state.page = 1; load(); }
+  });
+  document.getElementById("page-size").addEventListener("change", function (event) {
+    state.pageSize = Number(event.target.value);
+    state.page = 1;
+    load();
+  });
+  document.getElementById("prev").addEventListener("click", function () {
+    if (state.page > 1) { state.page -= 1; load(); }
+  });
+  document.getElementById("next").addEventListener("click", function () {
+    if (state.page < state.pages) { state.page += 1; load(); }
+  });
+  document.getElementById("edit-form").addEventListener("submit", save);
+  document.getElementById("edit-delete").addEventListener("click", remove);
+  document.getElementById("edit-cancel").addEventListener("click", function () { dialog.close(); });
+  document.getElementById("edit-close").addEventListener("click", function () { dialog.close(); });
+
+  fetch(API + "/schema", { headers: { Accept: "application/json" } })
+    .then(function (response) {
+      if (!response.ok) { throw new Error("schema"); }
+      return response.json();
+    })
+    .then(function (data) {
+      state.schema = data;
+      if (data.tables.length) { state.table = data.tables[0].name; }
+      renderTabs();
+      document.getElementById("filter-status-wrap").hidden =
+        currentSpec().filters.indexOf("status") < 0;
+      load();
+    })
+    .catch(function () {
+      body.textContent = "";
+      var tr = document.createElement("tr");
+      var td = document.createElement("td");
+      td.className = "empty";
+      td.textContent = "Schema konnte nicht geladen werden.";
+      tr.appendChild(td);
+      body.appendChild(tr);
+    });
+})();
+</script>
+</body>
+</html>
