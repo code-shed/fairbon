@@ -449,6 +449,61 @@ def test_api_blob_maps_server_and_network_errors_with_node() -> None:
     assert data["network"].startswith("Keine Verbindung")
 
 
+def test_api_sends_the_browser_to_login_when_the_session_expired() -> None:
+    """A 401 from the site gate opens the login page; other errors do not."""
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    script = """
+    const fs = require('fs');
+    const vm = require('vm');
+    const sandbox = {
+      FAIRBON_API_BASE_URL: '',
+      location: { href: 'http://localhost:8000/' }
+    };
+    sandbox.window = sandbox;
+    let status = 401;
+    sandbox.fetch = function () {
+      return Promise.resolve({
+        ok: false,
+        status: status,
+        headers: { get: function () { return 'application/json'; } },
+        json: function () {
+          return Promise.resolve({ detail: 'Anmeldung erforderlich.' });
+        }
+      });
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(fs.readFileSync('frontend/js/api.js', 'utf8'), sandbox);
+    (async function () {
+      const out = {};
+      const api = sandbox.FairBon.api;
+      try { await api.get('/api/v1/receipts'); } catch (e) { out.message = e.message; }
+      out.href = sandbox.location.href;
+      status = 422;
+      sandbox.location.href = 'http://localhost:8000/';
+      try { await api.get('/api/v1/receipts'); } catch (e) { out.other = e.message; }
+      out.hrefAfterOtherError = sandbox.location.href;
+      console.log(JSON.stringify(out));
+    })();
+    """
+    result = subprocess.run(
+        [node, "-e", script],
+        cwd=str(Path(__file__).resolve().parents[1]),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    data = json.loads(result.stdout.strip().splitlines()[-1])
+    assert data["href"] == "/login?next=%2F"
+    assert data["message"] == "Anmeldung erforderlich."
+    assert data["hrefAfterOtherError"] == "http://localhost:8000/"
+
+
 # -- docs ------------------------------------------------------------------
 
 

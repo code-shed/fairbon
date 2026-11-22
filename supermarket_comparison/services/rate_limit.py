@@ -90,17 +90,17 @@ class DailyCounter:
             self._count += 1
             return self._count
 
-    def try_increment(self, cap: int) -> bool:
-        """Atomically reserve one unit if the daily cap allows it."""
+    def try_increment(self, cap: int, amount: int = 1) -> bool:
+        """Atomically reserve *amount* units if the daily cap allows them."""
 
         with self._lock:
             today = self._today()
             if self._day != today:
                 self._day = today
                 self._count = 0
-            if self._count >= int(cap):
+            if self._count + amount > int(cap):
                 return False
-            self._count += 1
+            self._count += amount
             return True
 
     def reset(self) -> None:

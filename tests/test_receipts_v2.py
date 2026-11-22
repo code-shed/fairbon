@@ -350,6 +350,38 @@ async def test_opencode_zen_provider_uses_zen_endpoint(
 # ---------------------------------------------------------------------------
 
 
+def test_tax_summary_lines_are_not_products() -> None:
+    from supermarket_comparison.services.receipts import parse_receipt_text
+
+    text = (
+        "PENNY\n"
+        "Milch 1,49 A\n"
+        "SUMME EUR 1,49\n"
+        "A= 19,0% 0,24 0,05 0,29\n"
+        "Gesantbetrag 1,20 0,29 1,49\n"
+    )
+    parsed = parse_receipt_text(text)
+
+    assert [item.name for item in parsed.items] == ["Milch"]
+    assert parsed.total == 1.49
+
+
+def test_partial_ocr_page_is_marked_for_review(monkeypatch: pytest.MonkeyPatch) -> None:
+    from supermarket_comparison.api.routes import receipts as route
+    from supermarket_comparison.services.receipt_import import OcrPage
+
+    text = "PENNY\nMilch 1,49 A\nBrot 2,00 A\nSUMME EUR 5,00\n"
+    monkeypatch.setattr(
+        route, "try_ocr_page", lambda data: OcrPage(text=text, confidence=70.0)
+    )
+
+    receipt = route._ocr_page_receipt(b"unused", page=1)
+
+    assert receipt is not None
+    assert receipt["total_cents"] == 500
+    assert receipt["ocr_review"] is True
+
+
 def test_ebon_text_parsing_is_local_and_free(repository: Repository) -> None:
     from supermarket_comparison.services.receipts import parse_receipt_text
 
@@ -551,6 +583,50 @@ def test_save_rejects_too_many_items(client: TestClient) -> None:
     )
     assert response.status_code == 422
     assert "120" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_vision_limit_says_it_is_a_limit() -> None:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "gemini")
+    object.__setattr__(settings, "vision_primary_api_key", "k")
+    object.__setattr__(settings, "vision_primary_model", "m")
+    transport = httpx.MockTransport(lambda request: httpx.Response(429))
+
+    with pytest.raises(rv.VisionError) as excinfo:
+        await rv.extract_with_vision(
+            rv.SanitizedUploadImage(data=_fake_image_bytes()),
+            client_factory=lambda: httpx.AsyncClient(transport=transport),
+        )
+
+    assert "Limit" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_vision_timeout_says_it_took_too_long() -> None:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "gemini")
+    object.__setattr__(settings, "vision_primary_api_key", "k")
+    object.__setattr__(settings, "vision_primary_model", "m")
+
+    def timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    transport = httpx.MockTransport(timeout)
+
+    with pytest.raises(rv.VisionError) as excinfo:
+        await rv.extract_with_vision(
+            rv.SanitizedUploadImage(data=_fake_image_bytes()),
+            client_factory=lambda: httpx.AsyncClient(transport=transport),
+        )
+
+    assert "zu lange" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
@@ -841,6 +917,152 @@ def test_byok_rejected_key_returns_422_without_leaking_it(
     assert response.status_code == 422
     assert "abgelehnt" in response.json()["detail"]
     assert "rejected-user-key" not in response.text
+
+
+def _scanned_pdf(pages: int = 2) -> bytes:
+    """An image-only PDF, like a scanner produces (no text layer)."""
+
+    from PIL import Image
+
+    sheets = [Image.new("RGB", (420, 640), (238, 236, 230)) for _ in range(pages)]
+    buffer = io.BytesIO()
+    sheets[0].save(buffer, format="PDF", save_all=True, append_images=sheets[1:])
+    return buffer.getvalue()
+
+
+def _receipt_pdf(*texts: str) -> bytes:
+    """An image-only PDF whose pages carry readable receipt text."""
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    font = ImageFont.load_default(size=44)
+    sheets = []
+    for text in texts:
+        sheet = Image.new("RGB", (900, 1200), "white")
+        ImageDraw.Draw(sheet).multiline_text(
+            (50, 60), text, fill="black", font=font, spacing=24
+        )
+        sheets.append(sheet)
+    buffer = io.BytesIO()
+    sheets[0].save(buffer, format="PDF", save_all=True, append_images=sheets[1:])
+    return buffer.getvalue()
+
+
+def _enable_gemini_vision(monkeypatch: pytest.MonkeyPatch) -> FakeVisionTransport:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "gemini")
+    object.__setattr__(settings, "vision_primary_api_key", "primary-key")
+    object.__setattr__(settings, "vision_primary_model", "gemini-2.5-flash-lite")
+    transport = FakeVisionTransport(primary_fails=False)
+    mock = httpx.MockTransport(transport.handle)
+    real_async_client = rv.httpx.AsyncClient
+    monkeypatch.setattr(
+        rv.httpx, "AsyncClient", lambda **kwargs: real_async_client(transport=mock)
+    )
+    return transport
+
+
+def test_scanned_pdf_with_text_is_read_locally_without_vision(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    transport = _enable_gemini_vision(monkeypatch)
+    page = "PENNY\nMilch 1,49 A\nSUMME 1,49\n"
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _receipt_pdf(page, page), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["engine"] == "ocr"
+    assert [receipt["page"] for receipt in body["receipts"]] == [1, 2]
+    assert body["receipts"][0]["total_cents"] == 149
+    assert transport.calls == []
+
+
+def test_scanned_pdf_is_read_page_by_page_with_vision(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    transport = _enable_gemini_vision(monkeypatch)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(2), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["engine"] == "vision-pdf"
+    assert [receipt["page"] for receipt in body["receipts"]] == [1, 2]
+    assert body["store"] == "netto"
+    assert transport.calls == ["gemini", "gemini"]
+
+
+def test_scanned_pdf_counts_every_page_against_the_daily_budget(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from supermarket_comparison.config import get_settings
+
+    transport = _enable_gemini_vision(monkeypatch)
+    object.__setattr__(get_settings(), "max_global_scans_per_day", 1)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(2), "application/pdf")},
+    )
+
+    assert response.status_code == 429
+    assert "Gratis-Kontingent" in response.json()["detail"]
+    assert transport.calls == []
+
+
+def test_scanned_pdf_with_own_key_skips_the_budget(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from supermarket_comparison.config import get_settings
+
+    transport = _enable_gemini_vision(monkeypatch)
+    object.__setattr__(get_settings(), "max_global_scans_per_day", 0)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(2), "application/pdf")},
+        headers={"X-User-Vision-Key": "own-key", "X-User-Vision-Provider": "gemini"},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["receipts"]) == 2
+    assert transport.calls == ["gemini", "gemini"]
+
+
+def test_scanned_pdf_without_vision_says_it_has_no_text_layer(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(2), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"] == []
+    assert any("Textlayer" in warning for warning in body["warnings"])
+
+
+def test_pdf_pages_skips_images_above_the_pixel_limit() -> None:
+    from supermarket_comparison.services.pdf_pages import pdf_page_images
+
+    limited = pdf_page_images(_scanned_pdf(2), max_pixels=10_000)
+    assert limited.page_count == 2
+    assert limited.jpeg_pages == []
+
+    readable = pdf_page_images(_scanned_pdf(3), max_pages=2)
+    assert readable.page_count == 3
+    assert [number for number, _ in readable.jpeg_pages] == [1, 2]
 
 
 def test_scan_without_owner_token_returns_422(client: TestClient) -> None:

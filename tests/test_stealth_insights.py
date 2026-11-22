@@ -300,3 +300,23 @@ def test_insights_list_the_cheapest_store_per_point(
 
     assert [entry["store"] for entry in payload["stores"]] == ["netto", "lidl"]
     assert payload["stores"][0]["price"] == pytest.approx(1.49)
+
+
+def test_site_gate_401_has_no_basic_challenge(client: TestClient) -> None:
+    force_settings(site_password="geheim123")
+
+    response = client.get("/api/v1/stats/summary")
+
+    assert response.status_code == 401
+    assert "www-authenticate" not in response.headers
+
+
+def test_site_gate_sends_browser_pages_to_login(client: TestClient) -> None:
+    force_settings(site_password="geheim123")
+
+    response = client.get(
+        "/", headers={"Accept": "text/html"}, follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"

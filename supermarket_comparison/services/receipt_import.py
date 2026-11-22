@@ -26,10 +26,13 @@ from .receipts import ParsedReceipt, parse_receipt_text
 
 __all__ = [
     "ExtractionResult",
+    "OcrPage",
     "OcrUnavailable",
     "UnsupportedReceipt",
     "extract_text",
     "import_receipt",
+    "try_ocr_page",
+    "try_ocr_text",
 ]
 
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
@@ -76,23 +79,113 @@ def _extract_pdf(data: bytes) -> str:
     return "\n".join(chunks)
 
 
-def _extract_image(data: bytes) -> str:
+def _ocr_language(pytesseract: Any) -> str | None:
+    """Best installed language for German receipts (``deu`` is optional)."""
+
+    try:
+        available = set(pytesseract.get_languages(config=""))
+    except Exception:  # pragma: no cover - depends on host binaries
+        return None
+    if "deu" in available:
+        return "deu+eng" if "eng" in available else "deu"
+    return "eng" if "eng" in available else None
+
+
+@dataclass(frozen=True)
+class OcrPage:
+    """Text and mean word confidence of one locally read page."""
+
+    text: str
+    confidence: float
+
+
+def _ocr_modules() -> tuple[Any, Any, Any]:
     try:
         import pytesseract  # type: ignore[import-not-found]
-        from PIL import Image  # type: ignore[import-not-found]
+        from PIL import Image, ImageOps  # type: ignore[import-not-found]
     except ImportError as exc:
         raise OcrUnavailable(
             "Für Bilder ist lokal keine OCR installiert (pytesseract/Pillow). "
             "Bitte den Bon-Text einfügen oder ein PDF mit Textlayer hochladen."
         ) from exc
+    return pytesseract, Image, ImageOps
 
+
+def _extract_image(data: bytes) -> str:
+    pytesseract, Image, _ = _ocr_modules()
     try:
         image = Image.open(io.BytesIO(data))
-        return pytesseract.image_to_string(image, lang="deu")
+        language = _ocr_language(pytesseract)
+        if language is None:
+            raise OcrUnavailable(
+                "Für die lokale OCR ist keine Sprachdatei installiert. "
+                "Bitte den Bon-Text einfügen."
+            )
+        return pytesseract.image_to_string(image, lang=language)
+    except OcrUnavailable:
+        raise
     except Exception as exc:  # pragma: no cover - depends on host binaries
         raise OcrUnavailable(
             "Die OCR konnte das Bild nicht lesen. Bitte Bon-Text einfügen."
         ) from exc
+
+
+def try_ocr_text(data: bytes) -> str | None:
+    """Best-effort local OCR; ``None`` when OCR is unavailable or fails."""
+
+    try:
+        return _extract_image(data)
+    except OcrUnavailable:
+        return None
+
+
+def try_ocr_page(data: bytes) -> OcrPage | None:
+    """Read a scanned receipt page locally with receipt-tuned preprocessing.
+
+    Grayscale, contrast and 2× upscaling make small scan text readable. The
+    mean word confidence lets the caller send only trustworthy pages to the
+    preview; uncertain pages fall back to the vision provider.
+    """
+
+    try:
+        pytesseract, Image, ImageOps = _ocr_modules()
+        language = _ocr_language(pytesseract)
+        if language is None:
+            return None
+        image = Image.open(io.BytesIO(data)).convert("L")
+        image = ImageOps.autocontrast(image)
+        image = image.resize(
+            (image.width * 2, image.height * 2), Image.Resampling.LANCZOS
+        )
+        info = pytesseract.image_to_data(
+            image,
+            lang=language,
+            config="--psm 6",
+            output_type=pytesseract.Output.DICT,
+        )
+    except Exception:  # pragma: no cover - depends on host binaries
+        return None
+
+    lines: dict[tuple[int, int, int], list[str]] = {}
+    scores: list[float] = []
+    for index, word in enumerate(info.get("text", [])):
+        if word.strip():
+            key = (
+                int(info["block_num"][index]),
+                int(info["par_num"][index]),
+                int(info["line_num"][index]),
+            )
+            lines.setdefault(key, []).append(word)
+        try:
+            score = float(info["conf"][index])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if score >= 0:
+            scores.append(score)
+    if not lines or not scores:
+        return None
+    text = "\n".join(" ".join(words) for words in lines.values())
+    return OcrPage(text=text, confidence=sum(scores) / len(scores))
 
 
 def extract_text(

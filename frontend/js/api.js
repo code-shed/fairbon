@@ -8,6 +8,14 @@
 
   NS.API_BASE_URL = global.FAIRBON_API_BASE_URL || "";
 
+  var loginRedirected = false;
+
+  function redirectToLogin() {
+    if (loginRedirected) { return; }
+    loginRedirected = true;
+    global.location.href = NS.API_BASE_URL + "/login?next=%2F";
+  }
+
   function headers(extra) {
     var result = { Accept: "application/json" };
     if (NS.ownerToken) { result["X-Owner-Token"] = NS.ownerToken; }
@@ -84,6 +92,7 @@
       }).catch(networkError).then(function (response) {
         if (response.ok) { return response.blob(); }
         return response.json().catch(function () { return null; }).then(function (data) {
+          if (response.status === 401) { redirectToLogin(); }
           var error = new Error(data && data.detail ? data.detail : "Download fehlgeschlagen.");
           error.status = response.status;
           throw error;
@@ -106,6 +115,7 @@
       : response.text();
     return body.then(function (data) {
       if (!response.ok) {
+        if (response.status === 401) { redirectToLogin(); }
         var message = data && data.detail ? data.detail : "Anfrage fehlgeschlagen.";
         var error = new Error(message);
         error.status = response.status;

@@ -466,6 +466,30 @@ async def _call_provider(
     raise VisionError(f"Unbekannter Vision-Provider: {provider}")
 
 
+def _provider_failure_message(error: Exception | None) -> str:
+    """User-facing reason for a failed provider call (no URLs or keys)."""
+
+    if isinstance(error, httpx.HTTPStatusError):
+        status = error.response.status_code
+        if status == 429:
+            return (
+                "Das Limit des Vision-Anbieters ist erreicht – bitte später "
+                "erneut versuchen oder einen eigenen Schlüssel in den "
+                "Einstellungen hinterlegen."
+            )
+        if status in {401, 403}:
+            return (
+                "Der Vision-Anbieter hat den Schlüssel abgelehnt – bitte "
+                "Schlüssel und Anbieter prüfen."
+            )
+    if isinstance(error, httpx.TimeoutException):
+        return (
+            "Der Vision-Anbieter hat zu lange gebraucht – bitte erneut "
+            "versuchen."
+        )
+    return "Vision-Scan fehlgeschlagen. Bitte später erneut versuchen."
+
+
 async def extract_with_vision(
     image: SanitizedUploadImage,
     *,
@@ -501,15 +525,9 @@ async def extract_with_vision(
                     "Der eigene Schlüssel wurde abgelehnt – bitte Schlüssel und "
                     "Anbieter prüfen."
                 ) from exc
-            raise VisionError(
-                "Vision-Scan mit eigenem Schlüssel fehlgeschlagen. Bitte später "
-                "erneut versuchen."
-            ) from exc
+            raise VisionError(_provider_failure_message(exc)) from exc
         except httpx.HTTPError as exc:
-            raise VisionError(
-                "Vision-Scan mit eigenem Schlüssel fehlgeschlagen. Bitte später "
-                "erneut versuchen."
-            ) from exc
+            raise VisionError(_provider_failure_message(exc)) from exc
         return _validate_output(_extract_json(text), provider=provider)
 
     primary = normalize_provider_name(settings.vision_primary_provider)
@@ -551,6 +569,4 @@ async def extract_with_vision(
     import logging
 
     logging.getLogger(__name__).warning("All vision providers failed: %r", last_error)
-    raise VisionError(
-        "Vision-Scan fehlgeschlagen. Bitte später erneut versuchen."
-    )
+    raise VisionError(_provider_failure_message(last_error))

@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import contextlib
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 
 from ...config import get_settings
-from ...services.rate_limit import allow_scan, client_ip
-from ...services.receipt_import import OcrUnavailable, extract_text
+from ...services.pdf_pages import MAX_PDF_PAGES, PdfUnreadable, pdf_page_images
+from ...services.rate_limit import allow_scan, client_ip, scan_daily_global
+from ...services.receipt_import import OcrUnavailable, extract_text, try_ocr_page
 from ...services.receipt_vision import (
     BYOK_HEADER,
     BYOK_PROVIDER_HEADER,
@@ -32,6 +33,7 @@ from ...services.receipt_vision import (
     VisionKeyRejected,
     extract_with_vision,
 )
+from ...services.receipts import parse_receipt_text
 from ...services.upload_security import (
     ImageSanitizeError,
     UnsupportedReceipt as _UnsupportedReceipt,
@@ -65,6 +67,25 @@ _PRIVATE_ONLY_CATEGORIES: frozenset[str] = frozenset(
         "Pfand",
         "Technik/Non-Food",
     }
+)
+
+
+#: Shown when the server-funded daily scan budget is used up.
+FREE_SCAN_QUOTA_MESSAGE: Final = (
+    "Das heutige Gratis-Kontingent für Foto-Scans ist aufgebraucht – "
+    "eBon-PDF/Text, Haushaltsbuch, Export und Preisvergleich "
+    "funktionieren weiter!"
+)
+#: Minimum mean Tesseract confidence for a local preview at all.
+OCR_MIN_CONFIDENCE: Final = 60.0
+#: At or above this confidence, a reconciling page needs no review warning.
+OCR_TRUSTED_CONFIDENCE: Final = 80.0
+#: Allowed gap between item sum and printed total (cents) for trusted OCR.
+OCR_TOTAL_TOLERANCE_CENTS: Final = 100
+#: Shown for PDFs without any text that vision cannot read either.
+NO_TEXT_LAYER_WARNING: Final = (
+    "Dieses PDF hat keinen Textlayer (gescannt). Die Auswertung gescannter "
+    "Seiten braucht die Vision-API."
 )
 
 
@@ -130,14 +151,7 @@ async def _scan_upload(
         from ...services.rate_limit import scan_daily_global
 
         if not scan_daily_global.try_increment(settings.max_global_scans_per_day):
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    "Das heutige Gratis-Kontingent für Foto-Scans ist aufgebraucht – "
-                    "eBon-PDF/Text, Haushaltsbuch, Export und Preisvergleich "
-                    "funktionieren weiter!"
-                ),
-            )
+            raise HTTPException(status_code=429, detail=FREE_SCAN_QUOTA_MESSAGE)
 
     try:
         result = await extract_with_vision(
@@ -153,6 +167,154 @@ async def _scan_upload(
         raise HTTPException(status_code=status, detail=message) from exc
 
     return result.as_dict()
+
+
+def _ocr_page_receipt(jpeg: bytes, *, page: int) -> dict[str, Any] | None:
+    """Read one scanned page locally; ``None`` when OCR finds too little."""
+
+    ocr = try_ocr_page(jpeg)
+    if ocr is None or ocr.confidence < OCR_MIN_CONFIDENCE:
+        return None
+    parsed = parse_receipt_text(ocr.text)
+    if not parsed.items or parsed.total is None:
+        return None
+    item_cents = round(sum(item.price for item in parsed.items) * 100)
+    declared_cents = round(parsed.total * 100)
+    review = ocr.confidence < OCR_TRUSTED_CONFIDENCE or abs(
+        item_cents - declared_cents
+    ) > max(OCR_TOTAL_TOLERANCE_CENTS, round(declared_cents * 0.02))
+
+    items: list[dict[str, Any]] = []
+    for item in parsed.items:
+        items.append(
+            {
+                "raw_text": item.raw_line or item.name,
+                "normalized_name": item.name,
+                "brand": None,
+                "category": "Sonstiges",
+                "quantity": item.quantity,
+                "unit": item.unit,
+                "price_cents": round(item.price * 100),
+                "unit_price_cents": (
+                    round(item.unit_price * 100)
+                    if item.unit_price is not None
+                    else None
+                ),
+                "discount_cents": 0,
+                "deposit_cents": 0,
+                "vat_rate": None,
+                "is_private": False,
+            }
+        )
+    return {
+        "store": parsed.store,
+        "postal_code": parsed.postal_code,
+        "date": None,
+        "currency": "EUR",
+        "total_cents": declared_cents,
+        "items": items,
+        "engine": "ocr",
+        "provider": "tesseract",
+        "page": page,
+        "ocr_review": review,
+    }
+
+
+async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | None:
+    """Read every page of a scanned PDF, OCR first and vision as fallback.
+
+    Local OCR is free. Only pages it cannot read are sent to the vision
+    provider, one paid call and one daily-budget unit per such page.
+    Uploads with the user's own key skip the budget, as photos do.
+    """
+
+    settings = get_settings()
+    user_key = (request.headers.get(BYOK_HEADER) or "").strip()
+    allowed, reason = allow_scan(request)
+    if not allowed:
+        raise HTTPException(status_code=429, detail=reason)
+    try:
+        pages = pdf_page_images(data)
+    except PdfUnreadable as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not pages.jpeg_pages:
+        return None
+
+    receipts: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    vision_pages: list[tuple[int, bytes]] = []
+    for number, jpeg in pages.jpeg_pages:
+        local = _ocr_page_receipt(jpeg, page=number)
+        if local is not None:
+            if local.pop("ocr_review", False):
+                warnings.append(
+                    f"Seite {number} wurde lokal per OCR gelesen – bitte "
+                    "Beträge und fehlende Artikel prüfen."
+                )
+            receipts.append(local)
+        else:
+            vision_pages.append((number, jpeg))
+
+    provider_ready = bool(
+        user_key
+        or settings.vision_primary_api_key
+        or (settings.vision_fallback_provider and settings.vision_fallback_api_key)
+    )
+    if vision_pages and not provider_ready:
+        warnings.extend(
+            f"Seite {number} konnte nicht gelesen werden."
+            for number, _ in vision_pages
+        )
+        vision_pages = []
+
+    if vision_pages and not user_key:
+        reserved = scan_daily_global.try_increment(
+            settings.max_global_scans_per_day, amount=len(vision_pages)
+        )
+        if not reserved:
+            if not receipts:
+                raise HTTPException(status_code=429, detail=FREE_SCAN_QUOTA_MESSAGE)
+            warnings.append(FREE_SCAN_QUOTA_MESSAGE)
+            vision_pages = []
+
+    provider = (request.headers.get(BYOK_PROVIDER_HEADER) or "").strip()
+    vision_used = False
+    last_error = ""
+    for number, jpeg in vision_pages:
+        try:
+            cleaned = sanitize(jpeg)
+            result = await extract_with_vision(
+                cleaned, user_key=user_key or None, user_provider=provider
+            )
+        except VisionKeyRejected as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except VisionError as exc:
+            last_error = str(exc)
+            warnings.append(f"Seite {number} konnte nicht gelesen werden.")
+            continue
+        except (ImageSanitizeError, UploadTooLarge, _UnsupportedReceipt):
+            warnings.append(f"Seite {number} ist kein lesbares Bild.")
+            continue
+        vision_used = True
+        receipts.append({**result.as_dict(), "page": number})
+
+    if not receipts:
+        if last_error:
+            raise HTTPException(status_code=502, detail=last_error)
+        return None
+
+    receipts.sort(key=lambda receipt: receipt.get("page") or 0)
+    if pages.page_count > MAX_PDF_PAGES:
+        warnings.append(
+            f"Nur die ersten {MAX_PDF_PAGES} von {pages.page_count} Seiten "
+            "wurden gelesen."
+        )
+    return {
+        **receipts[0],
+        "engine": "vision-pdf" if vision_used else "ocr",
+        "receipts": receipts,
+        "warnings": warnings,
+    }
 
 
 @router.post(
@@ -212,10 +374,14 @@ async def scan_receipt(
     except OcrUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    from ...services.receipts import parse_receipt_text
-
-    parsed = parse_receipt_text(extraction.text)
-    return {**parsed.as_dict(), "engine": extraction.engine}
+    payload = parse_receipt_text(extraction.text).as_dict()
+    if extraction.engine == "pdf" and not payload.get("items"):
+        scanned = await _scan_pdf_pages(request, data=data)
+        if scanned is not None:
+            return scanned
+        if not extraction.text.strip():
+            payload["warnings"] = [*payload.get("warnings", []), NO_TEXT_LAYER_WARNING]
+    return {**payload, "engine": extraction.engine}
 
 
 @router.get("", summary="Eigene Kassenbons auflisten")

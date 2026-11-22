@@ -47,12 +47,13 @@ STORE_PATTERNS: Final[dict[str, tuple[str, ...]]] = {
 
 #: Lines that must never become products.
 _IGNORE_RE: Final = re.compile(
-    r"(summe|gesamt|zwischensumme|mwst|ust\.?|steuer|bar\b|gegeben|rückgeld|rueckgeld|"
-    r"ec-?karte|kartenzahlung|visa|mastercard|girocard|payback|lidl plus|"
+    r"(summe|gesa\w*tbetrag|zwischensumme|mwst|ust\.?|steuer|bar\b|gegeben|rückgeld|"
+    r"rueckgeld|ec-?karte|kartenzahlung|visa|mastercard|girocard|payback|lidl plus|"
     r"deutschland card|trinkgeld|rabatt\s*-|gutschein|punkte|"
     r"datum|uhrzeit|kasse|bon-?nr|beleg-?nr|filiale|tel\.|www\.|"
     r"öffnungszeiten|oeffnungszeiten|vielen dank|auf wiedersehen|"
-    r"netto\s*[-–]\s*summe|zu zahlen|zahlbetrag|endsumme)",
+    r"netto\s*[-–]\s*summe|zu zahlen|zahlbetrag|endsumme|"
+    r"^\s*[a-z]\s*=\s*\d+[,.]\d+\s*%)",
     re.IGNORECASE,
 )
 
@@ -120,14 +121,29 @@ class ParsedReceipt:
         }
 
 
-def detect_store(text: str) -> str | None:
-    """Return the canonical store slug mentioned in *text*."""
+#: Printer and signature metadata that can mention another store's name.
+_STORE_METADATA_RE: Final = re.compile(
+    r"(tse|signatur|seriennummer|kasse\s*:|bon-?nr|beleg-?nr|uid|www\.|tel\.)",
+    re.IGNORECASE,
+)
 
-    lowered = text.lower()
-    for store, patterns in STORE_PATTERNS.items():
-        if any(pattern in lowered for pattern in patterns):
-            return store
-    return None
+
+def detect_store(text: str) -> str | None:
+    """Return the store with the strongest heading-like mention in *text*."""
+
+    scores: dict[str, int] = {}
+    for line in text.splitlines():
+        if _STORE_METADATA_RE.search(line):
+            continue
+        lowered = line.lower()
+        for store, patterns in STORE_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in lowered:
+                    weight = 3 if lowered.strip().startswith(pattern) else 1
+                    scores[store] = scores.get(store, 0) + weight
+    if not scores:
+        return None
+    return max(scores, key=lambda store: scores[store])
 
 
 def detect_postal_code(text: str) -> str | None:

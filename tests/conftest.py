@@ -13,6 +13,7 @@ from supermarket_comparison.services.rate_limit import (
     read_limiter,
     scan_daily_global,
     scan_daily_per_ip,
+    scan_per_ip_limiter,
 )
 
 #: Test-wide admin password so admin-gated endpoints are reachable in tests.
@@ -26,10 +27,12 @@ def _reset_rate_limits() -> Iterator[None]:
     read_limiter.reset()
     scan_daily_global.reset()
     scan_daily_per_ip.clear()
+    scan_per_ip_limiter.reset()
     yield
     read_limiter.reset()
     scan_daily_global.reset()
     scan_daily_per_ip.clear()
+    scan_per_ip_limiter.reset()
 
 
 @pytest.fixture(autouse=True)

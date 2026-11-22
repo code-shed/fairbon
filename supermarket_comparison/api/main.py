@@ -402,10 +402,10 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
                 if path not in {"/", ""}:
                     target += "?next=" + path
                 return RedirectResponse(target, status_code=303)
+            # No Basic challenge: browsers would open their own password dialog.
             return JSONResponse(
-                {"detail": "Nicht autorisiert."},
+                {"detail": "Anmeldung erforderlich."},
                 status_code=401,
-                headers={"WWW-Authenticate": 'Basic realm="Supermarkt-Preisvergleich"'},
             )
 
         response = await call_next(request)

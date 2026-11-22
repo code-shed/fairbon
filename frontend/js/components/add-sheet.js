@@ -11,6 +11,10 @@
   var items = [];          // editable working copy
   var isDemo = false;      // demo mode: never share with the community
   var progress = null;     // scan checklist controller
+  var queue = [];          // receipts of a multi-page PDF, one preview each
+  var queueIndex = 0;
+  var queueSaved = 0;
+  var queueWarnings = [];
 
   var DEMO_BANNER_KEY = "fairbon.demo_banner_seen.v1";
   var OPTIN_KEY = "fairbon.share_optin.v1";
@@ -33,6 +37,9 @@
     els.demoNote = $("demo-note");
     els.summary = $("add-summary");
     els.banner = $("demo-banner");
+    els.queueInfo = $("add-queue-info");
+    els.warnings = $("add-warnings");
+    els.skip = $("add-skip");
     if (!els.modal) { return; }
 
     $("add-receipt-fab").addEventListener("click", function () { open(false); });
@@ -59,6 +66,7 @@
     });
     $("add-manual").addEventListener("click", manual);
     els.save.addEventListener("click", save);
+    els.skip.addEventListener("click", skipQueued);
     els.optin.addEventListener("change", function () {
       NS.storage.set(OPTIN_KEY, els.optin.checked === true);
     });
@@ -74,6 +82,10 @@
   function open(demoMode) {
     scanned = null;
     items = [];
+    queue = [];
+    queueIndex = 0;
+    queueSaved = 0;
+    queueWarnings = [];
     isDemo = !!demoMode;
     progress = null;
     els.preview.hidden = true;
@@ -211,9 +223,13 @@
       return NS.api.postForm("/api/v1/receipts/scan", form);
     }).then(function (result) {
       resetError();
-      scanned = result;
-      items = (result.items || []).map(copyItem);
-      var check = sumCheck(result, items);
+      queue = result.receipts && result.receipts.length ? result.receipts : [];
+      queueIndex = 0;
+      queueSaved = 0;
+      queueWarnings = result.warnings || [];
+      scanned = queue.length ? queue[0] : result;
+      items = (scanned.items || []).map(copyItem);
+      var check = sumCheck(scanned, items);
       var steps = [
         [0, null],
         [1, items.length + " Artikel ausgelesen & kategorisiert"],
@@ -251,6 +267,8 @@
 
   function manual() {
     isDemo = false;
+    queue = [];
+    queueIndex = 0;
     scanned = {
       store: "Sonstiges",
       postal_code: NS.state.postalCode,
@@ -309,6 +327,40 @@
       els.items.appendChild(renderRow(item, index));
     });
     renderSummary();
+    renderQueueInfo();
+  }
+
+  function showQueued(index) {
+    queueIndex = index;
+    scanned = queue[index];
+    items = (scanned.items || []).map(copyItem);
+    resetError();
+    renderPreview(false);
+    els.modal.scrollTop = 0;
+  }
+
+  function renderQueueInfo() {
+    els.warnings.hidden = !queueWarnings.length;
+    els.warnings.textContent = queueWarnings.join(" ");
+    var multi = queue.length > 1;
+    els.queueInfo.hidden = !multi;
+    els.skip.hidden = !multi;
+    if (!multi) {
+      els.queueInfo.textContent = "";
+      return;
+    }
+    var page = scanned && scanned.page ? " (Seite " + scanned.page + ")" : "";
+    var saved = queueSaved ? queueSaved + " gespeichert · " : "";
+    els.queueInfo.textContent = saved + "Bon " + (queueIndex + 1) + " von " +
+      queue.length + " aus dem PDF" + page + ".";
+  }
+
+  function skipQueued() {
+    if (queueIndex + 1 < queue.length) {
+      showQueued(queueIndex + 1);
+      return;
+    }
+    close();
   }
 
   function renderRow(item, index) {
@@ -517,8 +569,14 @@
       if (demoFlag && result && result.receipt_id) {
         NS.demo.markSaved(result.receipt_id);
       }
-      close();
       NS.emit("receipts-changed");
+      if (queueIndex + 1 < queue.length) {
+        queueSaved += 1;
+        els.save.disabled = false;
+        showQueued(queueIndex + 1);
+        return;
+      }
+      close();
       NS.emit("tab", { tab: "receipts" });
     }).catch(function (error) {
       els.save.disabled = false;
