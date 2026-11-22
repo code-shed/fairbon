@@ -1,5 +1,7 @@
 # Supermarkt-Preisvergleich V1.0 — Architektur-Umbau
 
+**Status (2026-11-22):** Phasen 1–4 umgesetzt — Cleanup, Scanner/Export, PWA-Frontend & Deployment-Härtung; Tests und Lint grün.
+
 **Strategische Neuausrichtung:** Weg von externen Prospekt-Scraping (Marktguru), hin zu einer
 100 % legalen, datenschutzfreundlichen Open-Source-App zum Kassenbon- & Ausgaben-Tracking
 mit 1-Klick-Excel-Export und Community-Preisvergleich (anonymisiertes Opt-in).

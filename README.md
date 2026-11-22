@@ -37,6 +37,11 @@ FairBon helps you **track purchases, compare prices, and save money** – **with
 
 ## 🚀 Quickstart (Development)
 
+> **Production?** See [`SECURITY_DEPLOYMENT.md`](SECURITY_DEPLOYMENT.md) for
+> the hardened Docker setup (127.0.0.1 binding, 512 MB limit, Caddy, Turnstile,
+> backups, UFW, fail2ban).
+
+
 > **Early Alpha** – the receipt tracker, community prices and smart basket
 > already run locally. Photo scans need a vision key (or use the demo receipt).
 

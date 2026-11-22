@@ -7,7 +7,8 @@ ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH" \
-    HOME=/home/app
+    HOME=/home/app \
+    SUPERMARKET_FRONTEND_DIR=/app/frontend
 
 # Runtime tools: curl for the healthcheck, Tesseract (German) for the
 # optional receipt-image OCR path. Single layer, no apt lists retained.
@@ -27,8 +28,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-# Layer 2: application code and the project itself.
+# Layer 2: application code, modular PWA frontend and the project itself.
 COPY supermarket_comparison ./supermarket_comparison
+COPY frontend ./frontend
 RUN python -m compileall -q supermarket_comparison \
     && uv sync --frozen --no-dev
 
@@ -43,7 +45,8 @@ RUN groupadd --gid 1000 app \
     && useradd --uid 1000 --gid 1000 --create-home --home-dir /home/app \
         --shell /usr/sbin/nologin app \
     && mkdir -p /app/data /app/.cache \
-    && chown -R app:app /app/data /app/.cache /home/app
+    && chown -R app:app /app/data /app/.cache /home/app \
+    && chmod -R a+rX /app/frontend
 
 USER app
 

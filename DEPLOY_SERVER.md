@@ -1,3 +1,9 @@
+> **Hinweis (V1.0):** Diese Datei beschreibt den historischen Docker-Betrieb.
+> Für den aktuellen, gehärteten Produktivbetrieb gilt
+> **[`SECURITY_DEPLOYMENT.md`](SECURITY_DEPLOYMENT.md)** (Reverse Proxy,
+> Upload-Limit, Turnstile, Backups, Firewall). Die früheren Harvester-/
+> Marktguru-Variablen sind entfallen.
+
 # Deployment auf einem Server
 
 Die App laeuft als Docker-Container – identisch bei **Hostinger VPS, Hetzner,

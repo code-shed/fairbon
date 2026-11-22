@@ -4,13 +4,23 @@ services:
     restart: unless-stopped
     # Der Scheduler und SQLite (WAL) brauchen Zeit fuer einen sauberen Shutdown.
     stop_grace_period: 30s
+    # Only reachable through the reverse proxy on the host.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    mem_limit: 512m
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     env_file:
       - .env
     environment:
       # Mandatory: keep the SQLite file on the persistent bind mount.
       SUPERMARKET_DATABASE_PATH: /app/data/supermarkt.db
+      SUPERMARKET_FRONTEND_DIR: /app/frontend
     volumes:
       # Persistent database + WAL/SHM files; survives rebuilds.
       - ./data:/app/data
