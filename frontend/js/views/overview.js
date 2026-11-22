@@ -7,6 +7,7 @@
   var els = {};
   var months = [];
   var monthIndex = 0;
+  var loaded = false;
 
   function $(id) { return document.getElementById(id); }
 
@@ -20,8 +21,13 @@
     els.bars = $("category-bars");
     els.empty = $("categories-empty");
     els.budgetHint = $("overview-budget-hint");
+    els.status = $("overview-status");
+    els.statusText = $("overview-status-text");
+    els.retry = $("overview-retry");
     if (!els.label) { return; }
 
+    els.empty.hidden = true;
+    els.retry.addEventListener("click", load);
     $("month-prev").addEventListener("click", function () { shiftMonth(1); });
     $("month-next").addEventListener("click", function () { shiftMonth(-1); });
 
@@ -30,6 +36,7 @@
   }
 
   function shiftMonth(delta) {
+    if (!months.length) { return; }
     var next = monthIndex + delta;
     if (next < 0) { next = 0; }
     if (next >= months.length) { next = months.length - 1; }
@@ -39,8 +46,10 @@
   }
 
   function load() {
+    if (!loaded) { showStatus("Übersicht wird geladen …", false); }
     NS.api.get("/api/v1/receipts/stats")
       .then(function (data) {
+        loaded = true;
         months = (data.by_month || []).map(function (entry) { return entry.month; });
         if (!months.length) {
           months = [currentMonth()];
@@ -51,9 +60,20 @@
         NS.state.month = months[monthIndex];
         render(months[monthIndex], data);
       })
-      .catch(function () {
-        render(currentMonth());
+      .catch(function (error) {
+        showStatus("Übersicht konnte nicht geladen werden. " + (error.message || ""), true);
       });
+  }
+
+  function showStatus(text, retry) {
+    els.status.hidden = false;
+    els.statusText.textContent = text;
+    els.retry.hidden = !retry;
+  }
+
+  function hideStatus() {
+    els.status.hidden = true;
+    els.retry.hidden = true;
   }
 
   function currentMonth() {
@@ -69,9 +89,12 @@
     if (!data) {
       NS.api.get("/api/v1/receipts/stats?month=" + encodeURIComponent(month))
         .then(function (fresh) { render(month, fresh); })
-        .catch(function () {});
+        .catch(function (error) {
+          showStatus("Monat konnte nicht geladen werden. " + (error.message || ""), true);
+        });
       return;
     }
+    hideStatus();
     els.label.textContent = NS.formatMonth(month);
 
     var demoCard = $("demo-card");

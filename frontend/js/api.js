@@ -74,6 +74,21 @@
         headers: headers(options.headers),
         body: formData
       }).then(parse).catch(networkError);
+    },
+
+    blob: function (path, options) {
+      options = options || {};
+      return fetch(url(path), {
+        method: "GET",
+        headers: headers(options.headers)
+      }).catch(networkError).then(function (response) {
+        if (response.ok) { return response.blob(); }
+        return response.json().catch(function () { return null; }).then(function (data) {
+          var error = new Error(data && data.detail ? data.detail : "Download fehlgeschlagen.");
+          error.status = response.status;
+          throw error;
+        });
+      });
     }
   };
 

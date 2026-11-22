@@ -127,6 +127,10 @@
       <strong id="month-label">November 2026</strong>
       <button type="button" class="icon-btn" id="month-next" aria-label="Nächster Monat">›</button>
     </div>
+    <div class="load-state" id="overview-status" role="status" hidden>
+      <p class="empty-hint" id="overview-status-text"></p>
+      <button type="button" class="secondary" id="overview-retry" hidden>Erneut versuchen</button>
+    </div>
 
     <section class="spend-card card" aria-labelledby="spend-heading">
       <h2 id="spend-heading" class="sr-only">Monatsausgaben</h2>
@@ -166,15 +170,20 @@
   <section class="tab-panel" id="tab-receipts" data-tab="receipts" hidden>
     <div class="receipts-toolbar">
       <input type="search" id="receipts-search" placeholder="Händler oder Artikel suchen" autocomplete="off">
-      <a class="secondary btn-link" id="export-xlsx" href="#">Export .xlsx</a>
-      <a class="secondary btn-link" id="export-csv" href="#">CSV</a>
+      <button type="button" class="secondary btn-link" id="export-xlsx">Export .xlsx</button>
+      <button type="button" class="secondary btn-link" id="export-csv">CSV</button>
     </div>
+    <p class="form-error" id="export-error" role="alert" hidden></p>
     <div class="chips" id="receipt-filters" aria-live="polite">
       <button type="button" class="chip" data-filter="all" aria-pressed="true">Alle</button>
       <button type="button" class="chip" data-filter="business" aria-pressed="false">Nur Geschäftlich</button>
       <button type="button" class="chip" data-filter="shared" aria-pressed="false">Geteilt</button>
     </div>
     <div id="receipt-list" class="receipt-list"></div>
+    <div class="load-state" id="receipts-status" role="status" hidden>
+      <p class="empty-hint" id="receipts-status-text"></p>
+      <button type="button" class="secondary" id="receipts-retry" hidden>Erneut versuchen</button>
+    </div>
     <p class="empty-hint" id="receipts-empty">Noch keine Bons. Tippe auf „+ Bon erfassen“.</p>
   </section>
 

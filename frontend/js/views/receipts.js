@@ -9,6 +9,8 @@
   var filter = "all";
   var search = "";
   var activeReceipt = null;
+  var loaded = false;
+  var loadError = "";
 
   function $(id) { return document.getElementById(id); }
 
@@ -20,6 +22,10 @@
     els.modal = $("receipt-modal");
     els.backdrop = $("receipt-backdrop");
     els.items = $("receipt-items");
+    els.status = $("receipts-status");
+    els.statusText = $("receipts-status-text");
+    els.retry = $("receipts-retry");
+    els.exportError = $("export-error");
     if (!els.list) { return; }
 
     els.search.addEventListener("input", function () {
@@ -42,14 +48,9 @@
     $("receipt-close").addEventListener("click", closeDetail);
     els.backdrop.addEventListener("click", closeDetail);
     $("receipt-delete").addEventListener("click", deleteActive);
-    $("export-xlsx").addEventListener("click", function (event) {
-      event.preventDefault();
-      download("xlsx");
-    });
-    $("export-csv").addEventListener("click", function (event) {
-      event.preventDefault();
-      download("csv");
-    });
+    els.retry.addEventListener("click", load);
+    $("export-xlsx").addEventListener("click", function () { download("xlsx"); });
+    $("export-csv").addEventListener("click", function () { download("csv"); });
 
     NS.on("receipts-changed", load);
     NS.on("open-receipts", function (payload) {
@@ -74,13 +75,16 @@
   }
 
   function load() {
+    loadError = "";
+    renderList();
     NS.api.get("/api/v1/receipts")
       .then(function (data) {
         receipts = data || [];
+        loaded = true;
         renderList();
       })
-      .catch(function () {
-        receipts = [];
+      .catch(function (error) {
+        loadError = error && error.message ? error.message : "Unbekannter Fehler.";
         renderList();
       });
   }
@@ -104,7 +108,16 @@
   function renderList() {
     els.list.textContent = "";
     var visible = receipts.filter(matches);
-    els.empty.hidden = visible.length > 0;
+    var waiting = !loaded && !loadError;
+    els.status.hidden = !(waiting || loadError);
+    els.statusText.textContent = loadError
+      ? "Bons konnten nicht geladen werden. " + loadError
+      : "Bons werden geladen …";
+    els.retry.hidden = !loadError;
+    els.empty.hidden = waiting || !!loadError || visible.length > 0;
+    els.empty.textContent = receipts.length
+      ? "Keine Bons für diese Suche oder diesen Filter."
+      : "Noch keine Bons. Tippe auf „+ Bon erfassen“.";
     visible.forEach(function (receipt) {
       var row = document.createElement("div");
       row.setAttribute("role", "button");
@@ -316,26 +329,41 @@
   }
 
   function download(format) {
-    var path = "/api/v1/receipts/export?format=" + format;
-    fetch(NS.api.url(path), { headers: NS.api.headers() })
-      .then(function (response) {
-        if (!response.ok) { throw new Error("Export fehlgeschlagen."); }
-        return response.blob();
-      })
+    var button = $("export-" + format);
+    els.exportError.hidden = true;
+    els.exportError.textContent = "";
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    NS.api.blob("/api/v1/receipts/export?format=" + format)
       .then(function (blob) {
-        var url = URL.createObjectURL(blob);
-        var link = document.createElement("a");
-        link.href = url;
-        link.download = "fairbon-bons." + format;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        saveBlob(blob, "fairbon-bons-" + dateStamp() + "." + format);
       })
       .catch(function (error) {
-        $("receipt-error").hidden = false;
-        $("receipt-error").textContent = error.message;
+        els.exportError.hidden = false;
+        els.exportError.textContent = error.message || "Export fehlgeschlagen.";
+      })
+      .then(function () {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
       });
+  }
+
+  function saveBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    global.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function dateStamp() {
+    var now = new Date();
+    var month = ("0" + (now.getMonth() + 1)).slice(-2);
+    var day = ("0" + now.getDate()).slice(-2);
+    return now.getFullYear() + "-" + month + "-" + day;
   }
 
   NS.views = NS.views || {};

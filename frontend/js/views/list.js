@@ -210,10 +210,42 @@
 
   function copyShare() {
     var text = NS.lastShareText || "";
-    if (!text) { return; }
-    if (global.navigator.clipboard) {
-      global.navigator.clipboard.writeText(text);
+    var button = $("share-copy");
+    if (!text || !button) { return; }
+    if (!button.getAttribute("data-label")) {
+      button.setAttribute("data-label", button.textContent);
     }
+    var clipboard = global.navigator.clipboard;
+    if (clipboard && clipboard.writeText) {
+      clipboard.writeText(text).then(function () {
+        flashCopy(button, "✓ Kopiert");
+      }, function () {
+        flashCopy(button, copyWithSelection(text) ? "✓ Kopiert" : "Kopieren fehlgeschlagen");
+      });
+      return;
+    }
+    flashCopy(button, copyWithSelection(text) ? "✓ Kopiert" : "Kopieren fehlgeschlagen");
+  }
+
+  function copyWithSelection(text) {
+    var area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    var copied = false;
+    try { copied = document.execCommand("copy"); } catch (error) { copied = false; }
+    area.remove();
+    return copied;
+  }
+
+  function flashCopy(button, label) {
+    button.textContent = label;
+    global.setTimeout(function () {
+      button.textContent = button.getAttribute("data-label");
+    }, 2000);
   }
 
   // --- speech -----------------------------------------------------------

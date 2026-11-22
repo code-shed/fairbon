@@ -368,6 +368,87 @@ def test_demo_receipt_math_with_node() -> None:
     assert data["savings"] == 210
 
 
+def test_js_element_ids_exist_in_index_html() -> None:
+    import re
+
+    html = (FRONTEND / "index.html").read_text()
+    ids = set(re.findall(r'id="([^"]+)"', html))
+    missing: list[str] = []
+    for path in sorted((FRONTEND / "js").rglob("*.js")):
+        text = path.read_text()
+        refs = re.findall(r'\$\("([^"]+)"\)', text)
+        refs += re.findall(r'getElementById\("([^"]+)"\)', text)
+        missing += [f"{path.name}: {ref}" for ref in refs if ref not in ids]
+    assert missing == []
+
+
+def test_api_blob_maps_server_and_network_errors_with_node() -> None:
+    """Export downloads send the owner token and surface German errors."""
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    script = """
+    const fs = require('fs');
+    const vm = require('vm');
+    const sandbox = { FAIRBON_API_BASE_URL: '' };
+    sandbox.window = sandbox;
+    let mode = 'ok';
+    sandbox.fetch = function (url, opts) {
+      sandbox.seen = { token: opts.headers['X-Owner-Token'] };
+      if (mode === 'network') {
+        const err = vm.runInContext("new TypeError('Failed to fetch')", sandbox);
+        return Promise.reject(err);
+      }
+      if (mode === 'http') {
+        return Promise.resolve({
+          ok: false,
+          status: 422,
+          headers: { get: function () { return 'application/json'; } },
+          json: function () {
+            return Promise.resolve({ detail: 'Export gerade nicht möglich.' });
+          }
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: function () { return 'text/csv'; } },
+        blob: function () { return Promise.resolve({ size: 3 }); }
+      });
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(fs.readFileSync('frontend/js/api.js', 'utf8'), sandbox);
+    sandbox.FairBon.ownerToken = 'owner-123';
+    (async function () {
+      const out = {};
+      const api = sandbox.FairBon.api;
+      out.ok = (await api.blob('/api/v1/receipts/export?format=csv')).size;
+      out.token = sandbox.seen.token;
+      mode = 'http';
+      try { await api.blob('/x'); } catch (e) { out.http = [e.message, e.status]; }
+      mode = 'network';
+      try { await api.blob('/x'); } catch (e) { out.network = e.message; }
+      console.log(JSON.stringify(out));
+    })();
+    """
+    result = subprocess.run(
+        [node, "-e", script],
+        cwd=str(Path(__file__).resolve().parents[1]),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    data = json.loads(result.stdout.strip().splitlines()[-1])
+    assert data["ok"] == 3
+    assert data["token"] == "owner-123"
+    assert data["http"] == ["Export gerade nicht möglich.", 422]
+    assert data["network"].startswith("Keine Verbindung")
+
+
 # -- docs ------------------------------------------------------------------
 
 

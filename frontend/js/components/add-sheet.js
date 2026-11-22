@@ -17,8 +17,6 @@
 
   function $(id) { return document.getElementById(id); }
 
-  function again() { return $("#add-modal"); }
-
   function init() {
     els.modal = $("add-modal");
     els.backdrop = $("add-backdrop");
