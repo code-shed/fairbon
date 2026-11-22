@@ -223,9 +223,12 @@ def _ocr_page_receipt(jpeg: bytes, *, page: int) -> dict[str, Any] | None:
 async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | None:
     """Read every page of a scanned PDF, OCR first and vision as fallback.
 
-    Local OCR is free. Only pages it cannot read are sent to the vision
-    provider, one paid call and one daily-budget unit per such page.
-    Uploads with the user's own key skip the budget, as photos do.
+    Local OCR is free and trusted when it reconciles with the printed
+    total. Pages that OCR cannot read – or reads only partially – go to
+    the vision provider, one paid call and one daily-budget unit per such
+    page. If vision fails, a partially read page still returns as an OCR
+    preview that is flagged for review. Uploads with the user's own key
+    skip the budget, as photos do.
     """
 
     settings = get_settings()
@@ -243,17 +246,27 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
     receipts: list[dict[str, Any]] = []
     warnings: list[str] = []
     vision_pages: list[tuple[int, bytes]] = []
+    ocr_candidates: dict[int, dict[str, Any]] = {}
     for number, jpeg in pages.jpeg_pages:
         local = _ocr_page_receipt(jpeg, page=number)
-        if local is not None:
-            if local.pop("ocr_review", False):
-                warnings.append(
-                    f"Seite {number} wurde lokal per OCR gelesen – bitte "
-                    "Beträge und fehlende Artikel prüfen."
-                )
-            receipts.append(local)
-        else:
+        if local is None:
             vision_pages.append((number, jpeg))
+        elif local.pop("ocr_review", False):
+            ocr_candidates[number] = local
+            vision_pages.append((number, jpeg))
+        else:
+            receipts.append(local)
+
+    def accept_ocr_candidate(number: int) -> bool:
+        candidate = ocr_candidates.pop(number, None)
+        if candidate is None:
+            return False
+        warnings.append(
+            f"Seite {number} wurde lokal per OCR gelesen – bitte "
+            "Beträge und fehlende Artikel prüfen."
+        )
+        receipts.append(candidate)
+        return True
 
     provider_ready = bool(
         user_key
@@ -261,10 +274,9 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
         or (settings.vision_fallback_provider and settings.vision_fallback_api_key)
     )
     if vision_pages and not provider_ready:
-        warnings.extend(
-            f"Seite {number} konnte nicht gelesen werden."
-            for number, _ in vision_pages
-        )
+        for number, _ in vision_pages:
+            if not accept_ocr_candidate(number):
+                warnings.append(f"Seite {number} konnte nicht gelesen werden.")
         vision_pages = []
 
     if vision_pages and not user_key:
@@ -272,9 +284,11 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
             settings.max_global_scans_per_day, amount=len(vision_pages)
         )
         if not reserved:
-            if not receipts:
+            if not receipts and not ocr_candidates:
                 raise HTTPException(status_code=429, detail=FREE_SCAN_QUOTA_MESSAGE)
             warnings.append(FREE_SCAN_QUOTA_MESSAGE)
+            for number, _ in vision_pages:
+                accept_ocr_candidate(number)
             vision_pages = []
 
     provider = (request.headers.get(BYOK_PROVIDER_HEADER) or "").strip()
@@ -290,12 +304,15 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except VisionError as exc:
             last_error = str(exc)
-            warnings.append(f"Seite {number} konnte nicht gelesen werden.")
+            if not accept_ocr_candidate(number):
+                warnings.append(f"Seite {number} konnte nicht gelesen werden.")
             continue
         except (ImageSanitizeError, UploadTooLarge, _UnsupportedReceipt):
-            warnings.append(f"Seite {number} ist kein lesbares Bild.")
+            if not accept_ocr_candidate(number):
+                warnings.append(f"Seite {number} ist kein lesbares Bild.")
             continue
         vision_used = True
+        ocr_candidates.pop(number, None)
         receipts.append({**result.as_dict(), "page": number})
 
     if not receipts:

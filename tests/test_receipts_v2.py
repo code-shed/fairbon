@@ -965,6 +965,96 @@ def _enable_gemini_vision(monkeypatch: pytest.MonkeyPatch) -> FakeVisionTranspor
     return transport
 
 
+def _enable_gemini_vision(
+    monkeypatch: pytest.MonkeyPatch, *, primary_fails: bool = False
+) -> FakeVisionTransport:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "gemini")
+    object.__setattr__(settings, "vision_primary_api_key", "primary-key")
+    object.__setattr__(settings, "vision_primary_model", "gemini-2.5-flash-lite")
+    transport = FakeVisionTransport(primary_fails=primary_fails)
+    mock = httpx.MockTransport(transport.handle)
+    real_async_client = rv.httpx.AsyncClient
+    monkeypatch.setattr(
+        rv.httpx, "AsyncClient", lambda **kwargs: real_async_client(transport=mock)
+    )
+    return transport
+
+
+def _partial_ocr_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every page read as a low-confidence, incomplete OCR result."""
+
+    from supermarket_comparison.api.routes import receipts as route
+    from supermarket_comparison.services.receipt_import import OcrPage
+
+    text = "PENNY\nMilch 1,49 A\nBrot 2,00 A\nSUMME EUR 5,00\n"
+    monkeypatch.setattr(
+        route, "try_ocr_page", lambda data: OcrPage(text=text, confidence=70.0)
+    )
+
+
+def test_partial_ocr_page_prefers_vision_when_it_works(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    transport = _enable_gemini_vision(monkeypatch)
+    _partial_ocr_page(monkeypatch)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(1), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["store"] == "netto"
+    assert transport.calls == ["gemini"]
+    assert not any("OCR" in warning for warning in body["warnings"])
+
+
+def test_partial_ocr_page_falls_back_when_vision_fails(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_gemini_vision(monkeypatch, primary_fails=True)
+    _partial_ocr_page(monkeypatch)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(1), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["engine"] == "ocr"
+    assert body["store"] == "penny"
+    assert body["total_cents"] == 500
+    assert any("OCR" in warning for warning in body["warnings"])
+
+
+def test_partial_ocr_page_falls_back_when_budget_is_exhausted(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from supermarket_comparison.config import get_settings
+
+    transport = _enable_gemini_vision(monkeypatch)
+    _partial_ocr_page(monkeypatch)
+    object.__setattr__(get_settings(), "max_global_scans_per_day", 0)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(1), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["engine"] == "ocr"
+    assert transport.calls == []
+    assert any("OCR" in warning for warning in body["warnings"])
+    assert any("Gratis-Kontingent" in warning for warning in body["warnings"])
+
+
 def test_scanned_pdf_with_text_is_read_locally_without_vision(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
