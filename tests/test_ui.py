@@ -264,6 +264,24 @@ def test_markets_are_freely_enterable_and_filterable() -> None:
     assert 'NS.on("receipts-changed", collectOwnStores)' in prices
 
 
+def test_modern_fonts_are_self_hosted() -> None:
+    """Outfit headings + Inter body, served locally — no CDN in production."""
+    css = (FRONTEND / "css" / "styles.css").read_text()
+    sw = (FRONTEND / "sw.js").read_text()
+
+    assert (FRONTEND / "fonts" / "inter-variable.woff2").is_file()
+    assert (FRONTEND / "fonts" / "outfit-variable.woff2").is_file()
+    assert 'font-family: "Inter"' in css
+    assert 'font-family: "Outfit"' in css
+    assert 'font-weight: 100 900' in css
+    assert '--font-ui: "Inter"' in css
+    assert '--font-display: "Outfit"' in css
+    assert "fonts.googleapis" not in css
+    # The service worker precaches the fonts for offline use.
+    assert "inter-variable.woff2" in sw
+    assert "outfit-variable.woff2" in sw
+
+
 def test_business_expenses_feature_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     state = (FRONTEND / "js" / "state.js").read_text()
@@ -289,7 +307,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v10" in sw
+    assert "fairbon-v11" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

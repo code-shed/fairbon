@@ -297,7 +297,7 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
 
     # --- static frontend (PWA + Capacitor webDir) -----------------------
     frontend = _frontend_dir()
-    for name in ("css", "js", "icons", "assets"):
+    for name in ("css", "js", "icons", "assets", "fonts"):
         directory = frontend / name
         if directory.is_dir():
             app.mount(
@@ -350,7 +350,7 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
 
     RATE_LIMITED_PREFIXES = (prefix + "/", "/")
     STATIC_PREFIXES = (
-        "/css/", "/js/", "/icons/", "/assets/",
+        "/css/", "/js/", "/icons/", "/assets/", "/fonts/",
         "/manifest.webmanifest", "/sw.js",
     )
 
