@@ -120,6 +120,8 @@ class Settings(BaseModel):
     vision_fallback_model: str = ""
     #: Base URL for ``openai_compatible`` providers (e.g. local llama.cpp).
     vision_openai_base_url: str = "https://api.openai.com/v1"
+    #: Base URL for OpenCode Go chat completions (override rarely needed).
+    vision_opencode_base_url: str = "https://opencode.ai/inference/go/openai/v1"
     #: Max. items a single receipt may carry (schema guard).
     vision_max_items: int = 120
     #: Scan budget per IP.

@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Final
@@ -34,7 +35,9 @@ __all__ = [
     "BYOK_HEADER",
     "MAX_ITEMS",
     "MAX_STRING_LEN",
-    "OPENCODE_BASE_URL",
+    "OPENCODE_GO_BASE_URL",
+    "OPENCODE_SESSION",
+    "OPENCODE_ZEN_BASE_URL",
     "PriceGuard",
     "VisionError",
     "VisionResult",
@@ -54,8 +57,11 @@ MAX_PRICE: Final = 5_000.0
 
 _ID_RE: Final = re.compile(r"[^a-zA-Z0-9_-]")
 
-#: OpenCode Zen/Console exposes an OpenAI-compatible endpoint.
-OPENCODE_BASE_URL: Final = "https://opencode.ai/inference/openai/v1"
+#: OpenCode Go (subscription) and Zen/Console (pay-as-you-go) endpoints.
+OPENCODE_GO_BASE_URL: Final = "https://opencode.ai/inference/go/openai/v1"
+OPENCODE_ZEN_BASE_URL: Final = "https://opencode.ai/inference/openai/v1"
+#: Stable per-process session id (Go asks clients to send one).
+OPENCODE_SESSION: Final = uuid.uuid4().hex
 
 _VISION_SYSTEM_PROMPT: Final = """\
 Du bist ein Kassenbon-Parser. Der Benutzer schickt dir ein Foto eines \
@@ -153,8 +159,10 @@ def normalize_provider_name(name: str | None) -> str:
         return "gemini"
     if cleaned in {"openai", "openai_compat", "openai_compatible"}:
         return "openai_compatible"
-    if cleaned in {"opencode", "opencode_zen", "opencode_console", "zen"}:
+    if cleaned in {"opencode", "opencode_go", "go"}:
         return "opencode"
+    if cleaned in {"opencode_zen", "opencode_console", "zen"}:
+        return "opencode_zen"
     return cleaned
 
 
@@ -355,6 +363,7 @@ async def _call_openai_compatible(
     api_key: str,
     model: str,
     image: SanitizedUploadImage,
+    extra_headers: Mapping[str, str] | None = None,
 ) -> str:
     url = f"{base_url.rstrip('/')}/chat/completions"
     body = {
@@ -376,6 +385,8 @@ async def _call_openai_compatible(
         ],
     }
     headers = {"Authorization": f"Bearer {api_key}"}
+    if extra_headers:
+        headers.update(extra_headers)
     response = await httpx_client.post(url, json=body, headers=headers, timeout=45.0)
     response.raise_for_status()
     payload = response.json()
@@ -407,13 +418,21 @@ async def _call_provider(
         return await _call_gemini(
             httpx_client, api_key=api_key, model=model, image=image
         )
-    if provider == "opencode":
+    if provider in {"opencode", "opencode_zen"}:
+        if provider == "opencode":
+            target = base_url or get_settings().vision_opencode_base_url
+        else:
+            target = base_url or OPENCODE_ZEN_BASE_URL
         return await _call_openai_compatible(
             httpx_client,
-            base_url=base_url or OPENCODE_BASE_URL,
+            base_url=target or OPENCODE_GO_BASE_URL,
             api_key=api_key,
             model=model,
             image=image,
+            extra_headers={
+                "User-Agent": "FairBon/0.1",
+                "x-opencode-session": OPENCODE_SESSION,
+            },
         )
     if provider == "mistral":
         # Mistral's OpenAI-compatible endpoint.

@@ -238,8 +238,9 @@ def test_opencode_is_a_provider_alias() -> None:
     from supermarket_comparison.services.receipt_vision import normalize_provider_name
 
     assert normalize_provider_name("opencode") == "opencode"
-    assert normalize_provider_name("opencode-zen") == "opencode"
-    assert normalize_provider_name("zen") == "opencode"
+    assert normalize_provider_name("opencode-go") == "opencode"
+    assert normalize_provider_name("opencode-zen") == "opencode_zen"
+    assert normalize_provider_name("zen") == "opencode_zen"
 
 
 @pytest.mark.asyncio
@@ -259,6 +260,8 @@ async def test_opencode_provider_uses_openai_compatible_endpoint(
     def handler(request: httpx.Request) -> httpx.Response:
         seen["url"] = str(request.url)
         seen["auth"] = request.headers.get("authorization")
+        seen["session"] = request.headers.get("x-opencode-session")
+        seen["user_agent"] = request.headers.get("user-agent") or ""
         body = json.dumps(
             {
                 "store": "netto",
@@ -289,11 +292,58 @@ async def test_opencode_provider_uses_openai_compatible_endpoint(
         client_factory=lambda: httpx.AsyncClient(transport=transport),
     )
 
-    assert seen["url"] == "https://opencode.ai/inference/openai/v1/chat/completions"
+    assert seen["url"] == "https://opencode.ai/inference/go/openai/v1/chat/completions"
     assert seen["auth"] == "Bearer test-opencode-key"
+    assert seen["session"]
+    assert seen["user_agent"].startswith("FairBon")
     assert result.provider == "opencode"
     assert result.items[0]["price_cents"] == 249
 
+
+
+
+@pytest.mark.asyncio
+async def test_opencode_zen_provider_uses_zen_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "opencode_zen")
+    object.__setattr__(settings, "vision_primary_api_key", "zen-key")
+    object.__setattr__(settings, "vision_primary_model", "mimo-v2.6-flash-free")
+
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        body = json.dumps(
+            {
+                "store": "netto",
+                "total_cents": 100,
+                "items": [
+                    {
+                        "raw_text": "Test",
+                        "normalized_name": "Test",
+                        "price_cents": 100,
+                        "vat_rate": 7,
+                    }
+                ],
+            }
+        )
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": body}}]}
+        )
+
+    transport = httpx.MockTransport(handler)
+    result = await rv.extract_with_vision(
+        rv.SanitizedUploadImage(data=_fake_image_bytes()),
+        client_factory=lambda: httpx.AsyncClient(transport=transport),
+    )
+
+    assert seen["url"] == "https://opencode.ai/inference/openai/v1/chat/completions"
+    assert result.provider == "opencode_zen"
 
 # ---------------------------------------------------------------------------
 # eBon text path (local, free, deterministic)
