@@ -282,6 +282,16 @@ def test_modern_fonts_are_self_hosted() -> None:
     assert "outfit-variable.woff2" in sw
 
 
+def test_receipts_anchor_the_markets_postal_code() -> None:
+    """Prices are valid where the purchase happened, not at the user's home."""
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+
+    assert (
+        "scanned && scanned.postal_code ? scanned.postal_code"
+        " : NS.state.postalCode" in sheet
+    )
+
+
 def test_business_expenses_feature_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     state = (FRONTEND / "js" / "state.js").read_text()
@@ -307,7 +317,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v11" in sw
+    assert "fairbon-v12" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

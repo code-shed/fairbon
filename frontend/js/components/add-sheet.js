@@ -557,7 +557,10 @@
       "store",
       els.storeField.value.trim() || (scanned && scanned.store) || "Sonstiges"
     );
-    data.append("postal_code", NS.state.postalCode);
+    data.append(
+      "postal_code",
+      scanned && scanned.postal_code ? scanned.postal_code : NS.state.postalCode
+    );
     data.append("country_code", NS.state.country);
     data.append("currency", (scanned && scanned.currency) || "EUR");
     data.append("receipt_date", (scanned && scanned.date) || todayIso());
