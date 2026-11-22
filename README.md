@@ -2,8 +2,8 @@
 
 # 🛒 FairBon
 
-**Open-Source Haushaltsbuch & Preisvergleich für deutsche Supermärkte**  
-*Datenschutz-first · Lokal · Community-getrieben*
+**Open-Source Household Budget & Price Comparison for German Supermarkets**  
+*Privacy-first · Local · Community-driven*
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Project Board](https://img.shields.io/badge/Project%20Board-GitHub%20Projects-6f42c1)](https://github.com/users/code-shed/projects/1)
@@ -13,141 +13,141 @@
 
 ---
 
-## 🎯 Was ist FairBon?
+## 🎯 What is FairBon?
 
-FairBon hilft dir, **Einkäufe zu tracken, Preise zu vergleichen und Geld zu sparen** – **ohne dass deine Daten je deinen Rechner verlassen**.
+FairBon helps you **track purchases, compare prices, and save money** – **without your data ever leaving your device**.
 
-| Feature | Status | Beschreibung |
-|---------|--------|--------------|
-| 🧾 **Kassenbon-Import** (OCR / manuell) | 🚧 *In Planung* | Foto → strukturierte Positionen (Artikel, Menge, Preis, Angebot/Regalpreis) |
-| 📊 **Preisverlauf & History** | 🚧 *In Planung* | Wie hat sich der Preis von „Hafermilch 1L“ über 6 Monate entwickelt? |
-| 🏷 **Angebote vs. Standardpreise** | 💡 *Konzept* | Erkennen: „Ist das gerade ein echtes Angebot oder der normale Preis?“ |
-| 🛍 **Smart Basket** | 💡 *Konzept* | „Ich brauche Milch, Haferflocken, Äpfel – wo ist der Korb *heute* am günstigsten?“ |
-| 🔒 **100 % lokal / offline-first** | ✅ *Design-Prinzip* | Keine Cloud, kein Tracking, keine Accounts – deine Daten, deine Regeln |
-| 🇩🇪 **Fokus: DE-Supermärkte** | ✅ *Scope* | REWE, EDEKA, Aldi, Lidl, Netto, Penny, Kaufland, dm, Rossmann, … |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| 🧾 **Receipt Import** (OCR / manual) | 🚧 *Planned* | Photo → structured line items (product, quantity, price, promo/regular) |
+| 📊 **Price History & Trends** | 🚧 *Planned* | How has the price of "Oat milk 1L" evolved over 6 months? |
+| 🏷 **Promos vs. Regular Prices** | 💡 *Concept* | Detect: "Is this a real deal or just the normal price?" |
+| 🛍 **Smart Basket** | 💡 *Concept* | "I need milk, oats, apples – where is the basket cheapest *today*?" |
+| 🔒 **100% local / offline-first** | ✅ *Design Principle* | No cloud, no tracking, no accounts – your data, your rules |
+| 🇩🇪 **Focus: DE Supermarkets** | ✅ *Scope* | REWE, EDEKA, Aldi, Lidl, Netto, Penny, Kaufland, dm, Rossmann, … |
 
-> **Warum AGPL-3.0?**  
-> Wenn jemand FairBon als Web-Service betreibt und den Code anpasst, *muss* er die Änderungen veröffentlichen. Das garantiert langfristig: **Deine Daten bleiben deine.**
+> **Why AGPL-3.0?**  
+> If someone runs FairBon as a web service and modifies the code, they *must* publish the changes. This guarantees long-term: **Your data stays yours.**
 
 ---
 
-## 🚀 Quickstart (Entwicklung)
+## 🚀 Quickstart (Development)
 
-> ⚠️ **Early Alpha** – Noch kein lauffähiger Code. Die Struktur wird gerade aufgebaut.
+> ⚠️ **Early Alpha** – No runnable code yet. Structure is being set up.
 
 ```bash
-# 1. Repository klonen
+# 1. Clone repository
 git clone https://github.com/code-shed/fairbon.git
 cd fairbon
 
-# 2. Python-Umgebung (empfohlen: uv oder venv)
+# 2. Python environment (recommended: uv or venv)
 python -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install -e ".[dev]"   # sobald pyproject.toml existiert
+pip install -e ".[dev]"   # once pyproject.toml exists
 
-# 3. Pre-Commit Hooks (später)
+# 3. Pre-commit hooks (later)
 pre-commit install
 
-# 4. Tests laufen lassen
+# 4. Run tests
 pytest -q
 ```
 
-**Geplanter Tech-Stack** (Diskussion offen – siehe [Issues](https://github.com/code-shed/fairbon/issues)):
-- **Backend:** Python (FastAPI / SQLAlchemy / Pydantic) – lokal als Single-Binary oder Docker
-- **Frontend:** Web-UI (HTMX + Tailwind oder React) + optional Native Desktop (Tauri/Electron)
-- **OCR:** Tesseract / PaddleOCR / Apple Vision / Google ML Kit (lokal)
-- **Datenhaltung:** SQLite (lokal), später evtl. DuckDB für Analysen
+**Planned Tech Stack** (open for discussion – see [Issues](https://github.com/code-shed/fairbon/issues)):
+- **Backend:** Python (FastAPI / SQLAlchemy / Pydantic) – local as single binary or Docker
+- **Frontend:** Web UI (HTMX + Tailwind or React) + optional Native Desktop (Tauri/Electron)
+- **OCR:** Tesseract / PaddleOCR / Apple Vision / Google ML Kit (local)
+- **Storage:** SQLite (local), later maybe DuckDB for analytics
 
 ---
 
-## 🤝 Mitmachen – Contributing Guide
+## 🤝 Contributing – Contributing Guide
 
-Wir freuen uns über **jede Art von Beitrag**: Code, Docs, Issues, Ideen, Tests, Übersetzungen, Design.
+We welcome **every kind of contribution**: code, docs, issues, ideas, tests, translations, design.
 
-### 1. Projektboard & Arbeitspakete
-👉 **zentrale Übersicht:** [GitHub Project Board „@fairbon“](https://github.com/users/code-shed/projects/1)  
-Dort siehst du: Backlog → Ready → In Progress → Review → Done
+### 1. Project Board & Work Packages
+👉 **Central overview:** [GitHub Project Board "@fairbon"](https://github.com/users/code-shed/projects/1)  
+There you'll see: Backlog → Ready → In Progress → Review → Done
 
-### 2. Guter erster Schritt
-- Schau in die **Issues** (Label `good first issue`, `help wanted`)
-- Oder eröffne ein **neues Issue** für Bug, Feature, Frage
-- Kommentiere: „Ich schau mir das an“ – dann assignen wir es dir
+### 2. Good First Step
+- Check **Issues** (labels `good first issue`, `help wanted`)
+- Or open a **new Issue** for bug, feature, question
+- Comment: "I'll take a look" – we'll assign it to you
 
 ### 3. Workflow
 ```text
-main (geschützt)
+main (protected)
   ↑ PR (Review + CI green)
-feature/kurz-beschreibung   (dein Branch)
+feature/short-description   (your branch)
   ↑ commits (conventional: feat:, fix:, docs:, refactor:, test:, chore:)
 ```
 
-- **Commits:** Konventionelle Commits (`feat: add receipt parser`)
-- **PR-Template** wird folgen – bis dahin: kurz beschreiben *Was & Warum*
-- **Tests & Lint** müssen grün sein (CI kommt mit erstem Code)
+- **Commits:** Conventional Commits (`feat: add receipt parser`)
+- **PR Template** coming soon – for now: briefly describe *What & Why*
+- **Tests & Lint** must pass (CI comes with first code)
 
-### 4. Verhaltenskodex
-Freundlich, konstruktiv, respektvoll – [Contributor Covenant](https://www.contributor-covenant.org/) (wird verlinkt, sobald `CODE_OF_CONDUCT.md` liegt).
+### 4. Code of Conduct
+Friendly, constructive, respectful – [Contributor Covenant](https://www.contributor-covenant.org/) (will be linked once `CODE_OF_CONDUCT.md` exists).
 
 ---
 
 ## 🗺 Roadmap (High-Level)
 
-| Phase | Ziel | Meilenstein |
-|-------|------|-------------|
-| **0** | Repo-Struktur, CI, Dev-Setup, Lizenz | ✅ *läuft gerade* |
-| **1** | Datenmodell (Artikel, Märkte, Preise, Bons), SQLite-Schema, Basis-CRUD | 🎯 *nächstes* |
-| **2** | Kassenbon-Import (manuell + OCR-Prototyp) | |
-| **3** | Preisverlauf, Charts, Export (CSV/JSON) | |
-| **4** | Smart Basket & Preisvergleich über Märkte | |
-| **5** | Desktop-App (Tauri), Installer, Auto-Update | |
-| **6** | Community-Features: Preis-Meldungen, Crowd-Sourcing (opt-in, anonym) | |
+| Phase | Goal | Milestone |
+|-------|------|-----------|
+| **0** | Repo structure, CI, dev setup, license | ✅ *in progress* |
+| **1** | Data model (products, markets, prices, receipts), SQLite schema, basic CRUD | 🎯 *next* |
+| **2** | Receipt import (manual + OCR prototype) | |
+| **3** | Price history, charts, export (CSV/JSON) | |
+| **4** | Smart Basket & cross-market price comparison | |
+| **5** | Desktop App (Tauri), Installer, Auto-Update | |
+| **6** | Community features: price reports, crowdsourcing (opt-in, anonymous) | |
 
 ---
 
-## 📂 Projektstruktur (geplant)
+## 📂 Project Structure (Planned)
 
 ```text
 fairbon/
-├── .github/                 # Workflows, Issue/PR-Templates
-├── docs/                    # Architektur, ADRs, API-Docs
-├── fairbon/                 # Python-Package (Backend)
-│   ├── api/                 # FastAPI-Router
+├── .github/                 # Workflows, Issue/PR templates
+├── docs/                    # Architecture, ADRs, API docs
+├── fairbon/                 # Python package (Backend)
+│   ├── api/                 # FastAPI routers
 │   ├── core/                # Config, Security, DB
-│   ├── models/              # SQLAlchemy/Pydantic
-│   ├── services/            # Business-Logik (OCR, Matching, Analytics)
+│   ├── models/              # SQLAlchemy/Pydantic models
+│   ├── services/            # Business logic (OCR, Matching, Analytics)
 │   └── cli.py               # Typer/Click CLI
-├── frontend/                # Web-UI (später)
+├── frontend/                # Web UI (later)
 ├── tests/                   # pytest (unit + integration)
-├── scripts/                 # Dev-Helpers (db-migrate, seed, etc.)
-├── pyproject.toml           # Build, deps, tool-config (ruff, mypy, pytest)
+├── scripts/                 # Dev helpers (db-migrate, seed, etc.)
+├── pyproject.toml           # Build, deps, tool config (ruff, mypy, pytest)
 ├── .gitignore
 ├── LICENSE                  # AGPL-3.0
-└── README.md                # diese Datei
+└── README.md                # this file
 ```
 
 ---
 
-## 📜 Lizenz & Copyright
+## 📜 License & Copyright
 
-**AGPL-3.0-or-later** – siehe [`LICENSE`](LICENSE)  
+**AGPL-3.0-or-later** – see [`LICENSE`](LICENSE)  
 Copyright © 2024 **code-shed** & Contributors
 
-> Kurz: **Nutzen, ändern, teilen erlaubt – aber gehostete Änderungen müssen offen gelegt werden.**
+> Short: **Use, modify, share allowed – but hosted modifications must be open-sourced.**
 
 ---
 
-## 💬 Kontakt & Community
+## 💬 Contact & Community
 
-- **Issues & Diskussionen:** [GitHub Issues](https://github.com/code-shed/fairbon/issues)
-- **Projektboard:** [https://github.com/users/code-shed/projects/1](https://github.com/users/code-shed/projects/1)
-- **Später:** Discord / Matrix / Forum (wenn Bedarf da ist)
+- **Issues & Discussions:** [GitHub Issues](https://github.com/code-shed/fairbon/issues)
+- **Project Board:** [https://github.com/users/code-shed/projects/1](https://github.com/users/code-shed/projects/1)
+- **Later:** Discord / Matrix / Forum (if demand exists)
 
 ---
 
 <div align="center">
 
-**FairBon wird von der Community für die Community gebaut.**  
-⭐ Stern das Repo, wenn du die Idee magst – das hilft bei Sichtbarkeit!
+**FairBon is built by the community, for the community.**  
+⭐ Star the repo if you like the idea – it helps with visibility!
 
 </div>
