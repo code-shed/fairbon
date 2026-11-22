@@ -114,3 +114,20 @@ def test_security_deployment_guide_covers_the_hardening_steps() -> None:
         "127.0.0.1:8000",
     ):
         assert needle.lower() in guide.lower(), needle
+
+
+# -- admin/ moderation path protection ------------------------------------
+
+
+def test_moderation_routes_are_admin_protected() -> None:
+    from supermarket_comparison.services.auth import is_admin_path
+
+    assert is_admin_path("/api/v1/crowd/prices/abc/approve") is True
+    assert is_admin_path("/api/v1/crowd/prices/abc/reject") is True
+    assert is_admin_path("/v2/api/v1/crowd/prices/abc/approve") is True
+    assert is_admin_path("/api/v1/crowd/review") is True
+    assert is_admin_path("/api/v1/crowd/review/approve-all") is True
+    # Public community endpoints stay public:
+    assert is_admin_path("/api/v1/crowd/prices") is False
+    assert is_admin_path("/api/v1/crowd/prices/abc/confirm") is False
+    assert is_admin_path("/api/v1/crowd/coverage") is False

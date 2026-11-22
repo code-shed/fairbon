@@ -110,6 +110,9 @@ ADMIN_PATHS: Final = frozenset(
 def is_admin_path(path: str) -> bool:
     """Whether *path* is an admin-only area (prefix match for sub-routes)."""
 
+    # Moderation of a specific price: /crowd/prices/<id>/approve|reject
+    if "/crowd/prices/" in path and path.endswith(("/approve", "/reject")):
+        return True
     for prefix in ADMIN_PATHS:
         if path == prefix or path.startswith(prefix + "/"):
             return True
