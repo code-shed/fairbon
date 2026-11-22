@@ -13,6 +13,7 @@
   var progress = null;     // scan checklist controller
 
   var DEMO_BANNER_KEY = "fairbon.demo_banner_seen.v1";
+  var OPTIN_KEY = "fairbon.share_optin.v1";
 
   function $(id) { return document.getElementById(id); }
 
@@ -21,7 +22,6 @@
   function init() {
     els.modal = $("add-modal");
     els.backdrop = $("add-backdrop");
-    els.file = $("add-file");
     els.pdf = $("add-pdf");
     els.error = $("add-error");
     els.preview = $("add-preview");
@@ -61,6 +61,9 @@
     });
     $("add-manual").addEventListener("click", manual);
     els.save.addEventListener("click", save);
+    els.optin.addEventListener("change", function () {
+      NS.storage.set(OPTIN_KEY, els.optin.checked === true);
+    });
     var closeBanner = $("demo-banner-close");
     if (closeBanner) {
       closeBanner.addEventListener("click", function () {
@@ -91,10 +94,12 @@
     if (isDemo) {
       els.optin.checked = false;
     } else {
-      els.optin.checked = true;
+      els.optin.checked = NS.storage.get(OPTIN_KEY, false) === true;
     }
     els.modal.hidden = false;
     els.backdrop.hidden = false;
+    var close = $("add-close");
+    if (close) { close.focus(); }
     if (isDemo) { startDemo(); }
   }
 
@@ -104,8 +109,20 @@
   }
 
   function showError(message) {
-    els.error.hidden = false;
-    els.error.textContent = message;
+    els.error.hidden = !message;
+    els.error.textContent = message || "";
+  }
+
+  function resetError() {
+    els.error.hidden = true;
+    els.error.textContent = "";
+  }
+
+  function setTilesDisabled(disabled) {
+    ["add-photo", "add-ebon", "add-manual"].forEach(function (id) {
+      var tile = $(id);
+      if (tile) { tile.disabled = disabled; }
+    });
   }
 
   // --- demo -------------------------------------------------------------
@@ -127,6 +144,7 @@
     }
     progress.playDemo().then(function () {
       renderPreview(true);
+      setTilesDisabled(false);
     });
   }
 
@@ -171,7 +189,8 @@
 
   // --- real scans -------------------------------------------------------
   function scanFile(file, isImage) {
-    showError("");
+    resetError();
+    setTilesDisabled(true);
     var prepare = isImage
       ? NS.platform.compressImage(file).catch(function () { return file; })
       : Promise.resolve(file);
@@ -193,20 +212,41 @@
       }
       return NS.api.postForm("/api/v1/receipts/scan", form);
     }).then(function (result) {
-      els.error.hidden = true;
+      resetError();
       scanned = result;
       items = (result.items || []).map(copyItem);
-      progress.complete(0);
-      progress.complete(1, items.length + " Artikel ausgelesen & kategorisiert");
-      progress.complete(2);
       var check = sumCheck(result, items);
-      if (check.warning) {
-        progress.warning(3, check.warning);
-      } else {
-        progress.complete(3, "Summe geprüft – stimmt auf den Cent");
-      }
-      renderPreview(false);
+      var steps = [
+        [0, null],
+        [1, items.length + " Artikel ausgelesen & kategorisiert"],
+        [2, null]
+      ];
+      var chain = Promise.resolve();
+      steps.forEach(function (step) {
+        chain = chain.then(function () {
+          return new Promise(function (resolve) {
+            global.setTimeout(function () {
+              progress.complete(step[0], step[1]);
+              resolve();
+            }, 120);
+          });
+        });
+      });
+      chain.then(function () {
+        return new Promise(function (resolve) {
+          global.setTimeout(resolve, 120);
+        });
+      }).then(function () {
+        if (check.warning) {
+          progress.warning(3, check.warning);
+        } else {
+          progress.complete(3, "Summe geprüft – stimmt auf den Cent");
+        }
+        renderPreview(false);
+        setTilesDisabled(false);
+      });
     }).catch(function (error) {
+      setTilesDisabled(false);
       showError(error.message || "Scan fehlgeschlagen.");
     });
   }
@@ -234,6 +274,7 @@
       is_private: false
     }];
     els.progressSection.hidden = true;
+    setTilesDisabled(false);
     renderPreview(false);
   }
 
@@ -339,7 +380,11 @@
 
     var vat = document.createElement("select");
     vat.setAttribute("aria-label", "MwSt-Satz");
-    [19, 7, 0].forEach(function (rate) {
+    var rates = [19, 7, 0];
+    if (item.vat_rate != null && rates.indexOf(Number(item.vat_rate)) < 0) {
+      rates.push(Number(item.vat_rate));
+    }
+    rates.forEach(function (rate) {
       var option = document.createElement("option");
       option.value = String(rate);
       option.textContent = rate + " % MwSt.";
@@ -385,8 +430,10 @@
     editor.appendChild(privateLabel);
     li.appendChild(editor);
 
+    summary.setAttribute("aria-expanded", "false");
     summary.addEventListener("click", function () {
       editor.hidden = !editor.hidden;
+      summary.setAttribute("aria-expanded", String(!editor.hidden));
       li.className = "receipt-item editable" + (editor.hidden ? "" : " open");
     });
     return li;
@@ -467,6 +514,7 @@
     data.append("items_json", JSON.stringify(items));
 
     var demoFlag = isDemo;
+    els.save.disabled = true;
     NS.api.postForm("/api/v1/receipts", data).then(function (result) {
       if (demoFlag && result && result.receipt_id) {
         NS.demo.markSaved(result.receipt_id);
@@ -475,6 +523,7 @@
       NS.emit("receipts-changed");
       NS.emit("tab", { tab: "receipts" });
     }).catch(function (error) {
+      els.save.disabled = false;
       showError(error.message || "Speichern fehlgeschlagen.");
     });
   }

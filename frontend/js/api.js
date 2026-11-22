@@ -36,7 +36,7 @@
       return fetch(url(path), {
         method: "GET",
         headers: headers(options.headers)
-      }).then(parse);
+      }).then(parse).catch(networkError);
     },
 
     postForm: function (path, formData, options) {
@@ -45,7 +45,7 @@
         method: "POST",
         headers: headers(options.headers),
         body: formData
-      }).then(parse);
+      }).then(parse).catch(networkError);
     },
 
     postJson: function (path, payload, options) {
@@ -56,7 +56,7 @@
         method: "POST",
         headers: h,
         body: JSON.stringify(payload)
-      }).then(parse);
+      }).then(parse).catch(networkError);
     },
 
     del: function (path, options) {
@@ -64,7 +64,7 @@
       return fetch(url(path), {
         method: "DELETE",
         headers: headers(options.headers)
-      }).then(parse);
+      }).then(parse).catch(networkError);
     },
 
     patchForm: function (path, formData, options) {
@@ -73,9 +73,16 @@
         method: "PATCH",
         headers: headers(options.headers),
         body: formData
-      }).then(parse);
+      }).then(parse).catch(networkError);
     }
   };
+
+  function networkError(error) {
+    if (error instanceof TypeError) {
+      throw new Error("Keine Verbindung zum Server. Bitte später erneut versuchen.");
+    }
+    throw error;
+  }
 
   function parse(response) {
     var contentType = response.headers.get("content-type") || "";

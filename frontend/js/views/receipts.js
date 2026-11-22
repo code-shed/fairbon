@@ -57,7 +57,17 @@
         search = payload.category.toLowerCase();
         els.search.value = payload.category;
         filter = "all";
+        Array.prototype.forEach.call(
+          els.filters.querySelectorAll(".chip"),
+          function (chip) {
+            chip.setAttribute(
+              "aria-pressed",
+              String(chip.getAttribute("data-filter") === "all")
+            );
+          }
+        );
         renderList();
+        NS.emit("tab", { tab: "receipts" });
       }
     });
     load();
@@ -96,8 +106,9 @@
     var visible = receipts.filter(matches);
     els.empty.hidden = visible.length > 0;
     visible.forEach(function (receipt) {
-      var row = document.createElement("button");
-      row.type = "button";
+      var row = document.createElement("div");
+      row.setAttribute("role", "button");
+      row.setAttribute("tabindex", "0");
       row.className = "receipt-row";
 
       var body = document.createElement("div");
@@ -137,16 +148,24 @@
         demoDelete.textContent = "Demo löschen";
         demoDelete.addEventListener("click", function (event) {
           event.stopPropagation();
+          if (!global.confirm("Beispiel-Bon wirklich löschen?")) { return; }
+          demoDelete.disabled = true;
           NS.api.del("/api/v1/receipts/" + receipt.id).then(function () {
             NS.demo.unmarkSaved(receipt.id);
             load();
             NS.emit("receipts-changed");
-          });
+          }).catch(function () { demoDelete.disabled = false; });
         });
         row.appendChild(demoDelete);
       }
 
       row.addEventListener("click", function () { openDetail(receipt); });
+      row.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetail(receipt);
+        }
+      });
       els.list.appendChild(row);
     });
   }
@@ -162,6 +181,8 @@
     renderItems(receipt);
     els.modal.hidden = false;
     els.backdrop.hidden = false;
+    var close = $("receipt-close");
+    if (close) { close.focus(); }
   }
 
   function closeDetail() {
@@ -278,11 +299,17 @@
 
   function deleteActive() {
     if (!activeReceipt) { return; }
-    NS.api.del("/api/v1/receipts/" + activeReceipt.id).then(function () {
+    if (!global.confirm("Diesen Bon wirklich löschen?")) { return; }
+    var receiptId = activeReceipt.id;
+    var button = $("receipt-delete");
+    button.disabled = true;
+    NS.api.del("/api/v1/receipts/" + receiptId).then(function () {
+      NS.demo.unmarkSaved(receiptId);
       closeDetail();
       load();
       NS.emit("receipts-changed");
     }).catch(function (error) {
+      button.disabled = false;
       $("receipt-error").hidden = false;
       $("receipt-error").textContent = error.message;
     });

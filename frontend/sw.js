@@ -10,9 +10,11 @@ var SHELL = [
   "./js/views/list.js",
   "./js/views/overview.js",
   "./js/views/receipts.js",
+  "./js/demo-receipt.js",
+  "./js/components/scan-progress.js",
   "./js/components/add-sheet.js",
   "./js/app.js",
-  "./icons/favicon.svg",
+  "./icons/favicon.ico",
   "./manifest.webmanifest"
 ];
 

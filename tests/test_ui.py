@@ -206,7 +206,9 @@ def test_add_sheet_has_three_paths_and_optin(client: TestClient) -> None:
     assert 'id="add-ebon"' in html
     assert 'id="add-manual"' in html
     assert 'id="share-optin"' in html
-    assert 'accept="image/*"' in html
+    platform = (FRONTEND / "js" / "platform.js").read_text()
+    assert 'input.accept = "image/*"' in platform
+    assert 'capture' in platform
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

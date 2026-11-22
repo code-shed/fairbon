@@ -189,6 +189,14 @@
     els.results.textContent = "";
     if (!state.items.length) {
       els.state.textContent = "Keine Angebote gefunden – andere PLZ oder Suchbegriff probieren.";
+      var cta = document.createElement("button");
+      cta.type = "button";
+      cta.className = "secondary";
+      cta.textContent = "Bon scannen & Preise beitragen";
+      cta.addEventListener("click", function () {
+        if (NS.components.addSheet) { NS.components.addSheet.open(false); }
+      });
+      els.state.appendChild(cta);
       els.summary.textContent = "";
       return;
     }
@@ -208,7 +216,7 @@
     card.className = "offer card";
 
     var top = document.createElement("div");
-    top.className = "offer-top";
+    top.className = "row-top";
     top.appendChild(NS.storeBadge(NS.storeInfo(product.store)));
     var save = document.createElement("button");
     save.type = "button";
@@ -233,14 +241,14 @@
     card.appendChild(title);
 
     var priceRow = document.createElement("div");
-    priceRow.className = "price-row";
+    priceRow.className = "pricing";
     var price = document.createElement("strong");
     price.className = "price";
     price.textContent = typeof product.price === "number" ? euro.format(product.price) : "–";
     priceRow.appendChild(price);
     if (typeof product.unit_price === "number" && (product.unit === "kg" || product.unit === "l")) {
       var unit = document.createElement("span");
-      unit.className = "unit-price";
+      unit.className = "unitprice";
       unit.textContent = euro.format(product.unit_price) + "/" + product.unit;
       priceRow.appendChild(unit);
     }
@@ -253,7 +261,7 @@
     card.appendChild(priceRow);
 
     var meta = document.createElement("p");
-    meta.className = "offer-meta";
+    meta.className = "meta";
     if (product.brand) { meta.appendChild(document.createTextNode(product.brand)); }
     if (validity.label) {
       if (meta.textContent) { meta.appendChild(document.createTextNode(" · ")); }
@@ -430,7 +438,7 @@
       line.setAttribute("x2", W - padR);
       line.setAttribute("y1", y(value));
       line.setAttribute("y2", y(value));
-      line.setAttribute("class", "grid");
+      line.setAttribute("class", "grid-line");
       svg.appendChild(line);
       var label = document.createElementNS("http://www.w3.org/2000/svg", "text");
       label.setAttribute("x", padL - 8);
@@ -449,7 +457,7 @@
     });
     var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", d.trim());
-    path.setAttribute("class", "line");
+    path.setAttribute("class", "series");
     svg.appendChild(path);
 
     points.forEach(function (point, index) {

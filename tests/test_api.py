@@ -343,7 +343,8 @@ def test_cors_headers_are_present(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "https://example.org"
+    # With the default allow-list ["*"] Starlette returns "*" (no credentials).
+    assert response.headers["access-control-allow-origin"] in {"*", "https://example.org"}
     assert "GET" in response.headers["access-control-allow-methods"]
 
 

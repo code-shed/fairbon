@@ -110,9 +110,15 @@ ADMIN_PATHS: Final = frozenset(
 def is_admin_path(path: str) -> bool:
     """Whether *path* is an admin-only area (prefix match for sub-routes)."""
 
-    return path in ADMIN_PATHS or any(
-        path.startswith(prefix + "/") for prefix in ADMIN_PATHS
-    )
+    for prefix in ADMIN_PATHS:
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+        # routers may be mounted under SUPERMARKET_API_PREFIX
+        if path.endswith(prefix) or path.endswith(prefix + "/"):
+            return True
+        if (prefix + "/") in path:
+            return True
+    return False
 
 
 def is_admin_authenticated(request: Request, settings: Settings) -> bool:

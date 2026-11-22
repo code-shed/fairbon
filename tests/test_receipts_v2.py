@@ -374,6 +374,104 @@ def test_demo_receipt_learns_no_aliases(
     assert aliases[0]["n"] == 0
 
 
+def test_demo_share_true_is_blocked_server_side(
+    client: TestClient, repository: Repository
+) -> None:
+    """Even a forged share=true + is_demo=true must never reach the community."""
+
+    response = client.post(
+        f"{PREFIX}/receipts",
+        data={
+            "store": "Frischmarkt",
+            "postal_code": "65618",
+            "country_code": "DE",
+            "currency": "EUR",
+            "receipt_date": "2026-11-22",
+            "total_cents": 2138,
+            "share_anonymized": "true",
+            "is_demo": "true",
+            "items_json": _items_payload(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["shared_count"] == 0
+    receipts = repository.db.query(
+        "SELECT shared_to_community FROM user_receipts"
+    )
+    assert receipts[0]["shared_to_community"] == 0
+    community = repository.db.query("SELECT COUNT(*) AS n FROM community_prices")
+    assert community[0]["n"] == 0
+
+
+def test_owner_token_is_not_returned(
+    client: TestClient, repository: Repository
+) -> None:
+    repository.insert_user_receipt(
+        owner_token=OWNER,
+        store="REWE",
+        postal_code="65618",
+        country_code="DE",
+        currency="EUR",
+        receipt_date="2026-11-22",
+        total_cents=174,
+        shared_to_community=False,
+        items=json.loads(_items_payload()),
+    )
+    listing = client.get(f"{PREFIX}/receipts").json()
+    assert listing and "owner_token" not in listing[0]
+    detail = client.get(f"{PREFIX}/receipts/{listing[0]['id']}").json()
+    assert "owner_token" not in detail
+
+
+def test_save_rejects_too_many_items(client: TestClient) -> None:
+    items = json.loads(_items_payload()) * 61  # 122 items
+    response = client.post(
+        f"{PREFIX}/receipts",
+        data={
+            "store": "REWE",
+            "postal_code": "65618",
+            "currency": "EUR",
+            "receipt_date": "2026-11-22",
+            "total_cents": 1000,
+            "share_anonymized": "false",
+            "items_json": json.dumps(items),
+        },
+    )
+    assert response.status_code == 422
+    assert "120" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_vision_error_never_leaks_the_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "gemini")
+    object.__setattr__(settings, "vision_primary_api_key", "super-secret-key")
+    object.__setattr__(settings, "vision_primary_model", "gemini-test")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"error": "boom"})
+
+    transport = httpx.MockTransport(handler)
+
+    with pytest.raises(rv.VisionError) as excinfo:
+        await rv.extract_with_vision(
+            rv.SanitizedUploadImage(data=_fake_image_bytes()),
+            client_factory=lambda: httpx.AsyncClient(transport=transport),
+        )
+
+    message = str(excinfo.value)
+    lowered = message.lower()
+    assert "super-secret-key" not in message
+    assert "key=" not in message
+    assert "http" not in lowered
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

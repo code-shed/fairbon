@@ -274,7 +274,9 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_credentials=True,
+        # Reflecting "*" with credentials is unsafe; only enable credentials
+        # for an explicit origin allow-list.
+        allow_credentials="*" not in settings.cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -346,7 +348,11 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
             content={"detail": _finite(jsonable_encoder(exc.errors()))},
         )
 
-    RATE_LIMITED_PREFIXES = (f"{prefix}/api/v1/", "/")
+    RATE_LIMITED_PREFIXES = (prefix + "/", "/")
+    STATIC_PREFIXES = (
+        "/css/", "/js/", "/icons/", "/assets/",
+        "/manifest.webmanifest", "/sw.js",
+    )
 
     @app.middleware("http")
     async def stealth_and_gate(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -358,6 +364,7 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
         # --- read rate limit (skip health/login/static) ------------------
         if (
             path.startswith(RATE_LIMITED_PREFIXES)
+            and not path.startswith(STATIC_PREFIXES)
             and not is_public_path(path)
             and not allow_read(request)
         ):
@@ -449,7 +456,11 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
         next: str = Form("/"),
     ) -> Response:
         current = get_settings()
-        target = next if next.startswith("/") and not next.startswith("//") else "/"
+        target = (
+            next
+            if next.startswith("/") and not next.startswith("//") and "\\" not in next
+            else "/"
+        )
         if not password_matches(current, password):
             return RedirectResponse("/login?error=1", status_code=303)
         response = RedirectResponse(target, status_code=303)

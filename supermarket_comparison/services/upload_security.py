@@ -92,11 +92,10 @@ def sanitize(upload: bytes) -> SanitizedUpload:
 
     try:
         image = Image.open(io.BytesIO(upload))
-        image.load()
-        # Decompression bomb / huge dimension guard (Pillow default is 89M px;
-        # we keep it defensive and explicit).
-        if image.width * image.height > Image.MAX_IMAGE_PIXELS:
+        # Dimension guard BEFORE decoding pixels (decompression bombs).
+        if image.width * image.height > (Image.MAX_IMAGE_PIXELS or 89_478_485):
             raise ImageSanitizeError("Bild hat zu große Abmessungen.")
+        image.load()
         if image.mode not in ("RGB", "L"):
             if image.mode in ("RGBA", "LA", "P"):
                 background = image.convert("RGBA")

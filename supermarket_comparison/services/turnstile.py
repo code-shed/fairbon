@@ -57,7 +57,7 @@ async def verify_turnstile(token: str | None, *, remote_ip: str | None = None) -
         logger.warning("Turnstile verification failed: %s", exc)
         return False
 
-    if not data.get("success"):
+    if not isinstance(data, dict) or not data.get("success"):
         codes = data.get("error-codes") or []
         if codes:
             logger.debug("Turnstile rejected token: %s", codes)

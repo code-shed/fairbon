@@ -50,13 +50,13 @@
         setState(index, "done", label);
         if (rows[index + 1]) { setState(index + 1, "running"); }
       },
-      /** Sequential animation used by the demo (1.4 s total). */
+      /** Sequential animation used by the demo (1.6 s total). */
       playDemo: function () {
         if (prefersReducedMotion()) {
           for (var i = 0; i < rows.length; i += 1) { setState(i, "done"); }
           return Promise.resolve();
         }
-        var delay = 350;
+        var delay = 400;
         var chain = Promise.resolve();
         rows.forEach(function (_, index) {
           chain = chain.then(function () {

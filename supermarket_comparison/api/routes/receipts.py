@@ -23,7 +23,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 
 from ...config import get_settings
-from ...services.rate_limit import allow_scan
+from ...services.rate_limit import allow_scan, client_ip
 from ...services.receipt_import import OcrUnavailable, extract_text
 from ...services.receipt_vision import (
     BYOK_HEADER,
@@ -110,17 +110,6 @@ async def _scan_upload(
         allowed, reason = allow_scan(request)
         if not allowed:
             raise HTTPException(status_code=429, detail=reason)
-        from ...services.rate_limit import scan_daily_global
-
-        if scan_daily_global.count() >= int(settings.max_global_scans_per_day):
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    "Das heutige Gratis-Kontingent für Foto-Scans ist aufgebraucht – "
-                    "eBon-PDF/Text, Haushaltsbuch, Export und Preisvergleich "
-                    "funktionieren weiter!"
-                ),
-            )
 
     try:
         cleaned = sanitize(data)
@@ -135,6 +124,20 @@ async def _scan_upload(
         # a tesseract stack exists; else a clear message).
         return None
 
+    # Reserve the server-funded budget atomically right before the paid call.
+    if not user_key:
+        from ...services.rate_limit import scan_daily_global
+
+        if not scan_daily_global.try_increment(settings.max_global_scans_per_day):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Das heutige Gratis-Kontingent für Foto-Scans ist aufgebraucht – "
+                    "eBon-PDF/Text, Haushaltsbuch, Export und Preisvergleich "
+                    "funktionieren weiter!"
+                ),
+            )
+
     try:
         result = await extract_with_vision(
             cleaned,
@@ -145,9 +148,6 @@ async def _scan_upload(
         message = str(exc)
         status = 503 if "nicht konfiguriert" in message else 502
         raise HTTPException(status_code=status, detail=message) from exc
-
-    if not user_key:
-        scan_daily_global.increment()
 
     return result.as_dict()
 
@@ -167,16 +167,25 @@ async def scan_receipt(
     Nothing is stored.  Images use the configured vision provider (with
     automatic fallback); PDFs and plain text are parsed locally for free.
     When ``TURNSTILE_*`` keys are configured, a valid ``turnstile_token``
-    is required for image scans.
+    is required for scans.
     """
 
     from ...services.turnstile import verify_turnstile
 
-    if not await verify_turnstile(turnstile_token or None):
+    if not await verify_turnstile(
+        turnstile_token or None, remote_ip=client_ip(request)
+    ):
         raise HTTPException(
             status_code=403,
             detail="Bot-Schutz (Turnstile) fehlgeschlagen – bitte erneut versuchen.",
         )
+
+    settings = get_settings()
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > settings.max_upload_bytes:
+        raise HTTPException(status_code=413, detail="Upload zu groß (max. 3 MB).")
+    if getattr(file, "size", None) and file.size > settings.max_upload_bytes:
+        raise HTTPException(status_code=413, detail="Upload zu groß (max. 3 MB).")
 
     data = await file.read()
     result = await _scan_upload(
@@ -218,9 +227,10 @@ async def list_receipts(
     result: list[dict[str, Any]] = []
     for receipt in receipts:
         items = repository.user_receipt_items_for(int(receipt["id"]))
+        public = {k: v for k, v in receipt.items() if k != "owner_token"}
         result.append(
             {
-                **receipt,
+                **public,
                 "item_count": len(items),
                 "items": items,
             }
@@ -296,8 +306,9 @@ async def get_receipt(
     receipt = repository.user_receipt(receipt_id=receipt_id, owner_token=owner_token)
     if receipt is None:
         raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
+    public = {k: v for k, v in receipt.items() if k != "owner_token"}
     return {
-        **receipt,
+        **public,
         "items": repository.user_receipt_items_for(receipt_id),
     }
 
@@ -374,11 +385,38 @@ async def save_receipt(
         raise HTTPException(
             status_code=422, detail="items_json muss eine Liste sein."
         )
+    if len(items) > 120:
+        raise HTTPException(
+            status_code=422, detail="Maximal 120 Positionen pro Beleg."
+        )
+    for item in items:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=422, detail="Ungültige Bon-Position.")
+        for field in ("raw_text", "normalized_name", "brand", "category", "unit"):
+            value = item.get(field)
+            if value is not None and len(str(value)) > 200:
+                raise HTTPException(
+                    status_code=422, detail=f"Feld '{field}' ist zu lang."
+                )
+        price_cents = item.get("price_cents")
+        try:
+            price_cents = int(price_cents or 0)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=422, detail="Ungültiger Zeilenpreis."
+            ) from exc
+        if not 0 <= price_cents <= 500_000:
+            raise HTTPException(
+                status_code=422, detail="Zeilenpreis außerhalb der Grenzen."
+            )
 
     clean_store = store.strip()
     if not clean_store:
         clean_store = "Sonstiges"
     plz = _normalize_plz(postal_code)
+
+    # A demo receipt is never shared, even if a client sends share=true.
+    effective_share = bool(share_anonymized) and not is_demo
 
     receipt_id = repository.insert_user_receipt(
         owner_token=owner_token,
@@ -388,7 +426,7 @@ async def save_receipt(
         currency=(currency or "EUR").upper()[:3],
         receipt_date=receipt_date,
         total_cents=int(total_cents),
-        shared_to_community=bool(share_anonymized),
+        shared_to_community=effective_share,
         items=items,
     )
 
@@ -414,7 +452,7 @@ async def save_receipt(
 
     # Community opt-in: share only eligible lines, without any owner data.
     shared_count = 0
-    if share_anonymized:
+    if effective_share:
         for item in items:
             category = str(item.get("category") or "Sonstiges")
             if category in _PRIVATE_ONLY_CATEGORIES:

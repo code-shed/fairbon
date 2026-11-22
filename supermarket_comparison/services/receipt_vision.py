@@ -312,7 +312,7 @@ async def _call_gemini(
 ) -> str:
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent?key={api_key}"
+        f"{model}:generateContent"
     )
     body = {
         "contents": [
@@ -330,7 +330,9 @@ async def _call_gemini(
         ],
         "generationConfig": {"temperature": 0.0},
     }
-    response = await httpx_client.post(url, json=body, timeout=45.0)
+    response = await httpx_client.post(
+        url, json=body, headers={"x-goog-api-key": api_key}, timeout=45.0
+    )
     response.raise_for_status()
     payload = response.json()
     candidates = payload.get("candidates") or []
@@ -484,4 +486,10 @@ async def extract_with_vision(
             except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.TransportError) as exc:  # noqa: E501
                 last_error = exc
                 continue
-    raise VisionError(f"Alle Vision-Provider fehlgeschlagen: {last_error}")
+    # Provider errors may contain request URLs; log them server-side only.
+    import logging
+
+    logging.getLogger(__name__).warning("All vision providers failed: %s", last_error)
+    raise VisionError(
+        "Vision-Scan fehlgeschlagen. Bitte später erneut versuchen."
+    )

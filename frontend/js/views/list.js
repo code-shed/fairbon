@@ -148,7 +148,7 @@
     els.optimize.textContent = "";
     [plan.option_a, plan.option_b].forEach(function (option) {
       var card = document.createElement("article");
-      card.className = "option card";
+      card.className = "option-panel card";
       var head = document.createElement("div");
       head.className = "option-head";
       var label = document.createElement("strong");
@@ -168,14 +168,22 @@
         subtotal.textContent = euro.format(group.subtotal);
         storeHead.appendChild(subtotal);
         block.appendChild(storeHead);
+        var list = document.createElement("ul");
+        list.className = "line-list";
         group.lines.forEach(function (line) {
-          var row = document.createElement("p");
-          row.className = "basket-line";
-          row.textContent = line.item + " – " +
-            (line.product.display_title || line.product.name) + " · " +
-            euro.format(line.product.price);
-          block.appendChild(row);
+          var row = document.createElement("li");
+          var name = document.createElement("span");
+          name.className = "line-name";
+          name.textContent = line.item + " – " +
+            (line.product.display_title || line.product.name);
+          var price = document.createElement("span");
+          price.className = "line-price";
+          price.textContent = euro.format(line.product.price);
+          row.appendChild(name);
+          row.appendChild(price);
+          list.appendChild(row);
         });
+        block.appendChild(list);
         card.appendChild(block);
       });
       if (option.missing_items && option.missing_items.length) {
