@@ -695,12 +695,15 @@ async def _share_to_community(
     )
 
     # The CommunityStore runs the price_validator (incl. pending_review
-    # quarantine) and only approved/verified entries become visible.
+    # quarantine). Own-receipt prices are auto-verified: plausible rows go
+    # straight to `verified`; flagged ones quarantine for the review queue.
     community = repository.community
     if hasattr(community, "add_price"):
-        await asyncio.to_thread(community.add_price, entry)
+        await asyncio.to_thread(
+            lambda: community.add_price(entry, auto_verify=True)
+        )
     else:  # pragma: no cover - defensive
-        community.add_price(entry)
+        community.add_price(entry, auto_verify=True)
 
 
 __all__ = ["CATEGORIES", "router"]

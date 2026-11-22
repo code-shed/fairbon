@@ -126,7 +126,11 @@ class CommunityStore:
 
     # -- writes -----------------------------------------------------------
     def add_price(
-        self, entry: CommunityPriceInput, *, history: Sequence[float] | None = None
+        self,
+        entry: CommunityPriceInput,
+        *,
+        history: Sequence[float] | None = None,
+        auto_verify: bool = False,
     ) -> dict[str, Any]:
         unit, quantity = normalise_unit(entry.unit, entry.quantity)
         identity = identity_of(
@@ -155,6 +159,12 @@ class CommunityStore:
             ),
             history=history,
         )
+        # Own-receipt prices (auto_verify) skip the scout confirmation
+        # round-trip: the uploader reviewed the items in the save dialog.
+        # Flagged outliers still quarantine for the review queue.
+        insert_status = "verified" if (
+            auto_verify and verdict.status == "pending"
+        ) else verdict.status
         self.db.execute(
             """
             INSERT INTO community_prices
@@ -177,7 +187,7 @@ class CommunityStore:
                 entry.scout_id,
                 entry.source,
                 entry.receipt_id,
-                verdict.status,
+                insert_status,
                 "; ".join(verdict.reasons) or None,
                 now,
                 now,

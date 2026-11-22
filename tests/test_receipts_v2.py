@@ -459,6 +459,80 @@ def test_save_without_optin_never_touches_community(client: TestClient) -> None:
     assert payload["shared_count"] == 0
 
 
+def test_shared_receipt_prices_are_visible_immediately(
+    client: TestClient, repository: Repository
+) -> None:
+    client.post(
+        f"{PREFIX}/receipts",
+        data={
+            "store": "penny",
+            "postal_code": "65618",
+            "country_code": "DE",
+            "currency": "EUR",
+            "receipt_date": "2026-11-22",
+            "total_cents": 149,
+            "share_anonymized": "true",
+            "items_json": json.dumps(
+                [
+                    {
+                        "raw_text": "Milch 1,49 A",
+                        "normalized_name": "Milch",
+                        "category": "Lebensmittel",
+                        "quantity": 1.0,
+                        "unit": "stueck",
+                        "price_cents": 149,
+                    }
+                ]
+            ),
+        },
+    )
+
+    found = repository.community.aggregated_for_query(
+        query="Milch", postal_code="65618"
+    )
+    assert [entry["store"] for entry in found] == ["penny"]
+
+
+def test_flagged_receipt_price_stays_in_review(
+    client: TestClient, repository: Repository
+) -> None:
+    client.post(
+        f"{PREFIX}/receipts",
+        data={
+            "store": "penny",
+            "postal_code": "65618",
+            "country_code": "DE",
+            "currency": "EUR",
+            "receipt_date": "2026-11-22",
+            "total_cents": 500000,
+            "share_anonymized": "true",
+            "items_json": json.dumps(
+                [
+                    {
+                        "raw_text": "Gold 5000,00",
+                        "normalized_name": "Gold",
+                        "category": "Sonstiges",
+                        "quantity": 1.0,
+                        "unit": "stueck",
+                        "price_cents": 500000,
+                    }
+                ]
+            ),
+        },
+    )
+
+    assert (
+        repository.community.aggregated_for_query(
+            query="Gold", postal_code="65618"
+        )
+        == []
+    )
+    rows = repository.db.query(
+        "SELECT status FROM community_prices WHERE name = 'Gold'"
+    )
+    assert rows and rows[0]["status"] == "pending_review"
+
+
 def test_save_with_optin_shares_only_eligible_lines_without_owner(
     client: TestClient, repository: Repository
 ) -> None:
