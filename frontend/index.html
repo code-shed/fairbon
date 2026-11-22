@@ -112,7 +112,15 @@
       <p class="sub">Kassenbons, Ausgaben &amp; Preise</p>
     </div>
     <div class="header-actions">
-      <button type="button" class="pill" id="plz-pill" aria-label="Postleitzahl ändern">PLZ 65618</button>
+      <div class="plz-wrap">
+        <button type="button" class="pill" id="plz-pill" aria-label="Postleitzahl ändern" aria-haspopup="true" aria-expanded="false">PLZ 65618</button>
+        <div class="plz-popover" id="plz-popover" role="dialog" aria-label="Postleitzahl ändern" hidden>
+          <label class="field">Postleitzahl
+            <input type="text" id="plz-input" inputmode="numeric" maxlength="5" pattern="[0-9]{4,5]" autocomplete="postal-code">
+          </label>
+          <button type="button" class="primary" id="plz-save">Übernehmen</button>
+        </div>
+      </div>
       <button type="button" class="icon-btn" id="settings-open" aria-label="Einstellungen">⚙</button>
     </div>
   </div>
@@ -418,6 +426,14 @@
     <label class="switch" for="settings-share">
       <input type="checkbox" id="settings-share" checked>
       <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
+    </label>
+    <label class="field">Eigener Vision-Anbieter (BYOK, optional)
+      <select id="settings-byok-provider">
+        <option value="openai_compatible">OpenAI</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="mistral">Mistral</option>
+        <option value="opencode">OpenCode</option>
+      </select>
     </label>
     <label class="field">Eigener Vision-API-Key (BYOK, optional)
       <input type="password" id="settings-byok" autocomplete="off" placeholder="überspringt Scan-Limits">

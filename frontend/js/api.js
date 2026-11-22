@@ -20,6 +20,11 @@
     var result = { Accept: "application/json" };
     if (NS.ownerToken) { result["X-Owner-Token"] = NS.ownerToken; }
     if (NS.state && NS.state.byok) { result["X-User-Vision-Key"] = NS.state.byok; }
+    if (
+      NS.state && NS.state.byok && NS.state.byokProvider
+    ) {
+      result["X-User-Vision-Provider"] = NS.state.byokProvider;
+    }
     if (extra) {
       for (var key in extra) {
         if (Object.prototype.hasOwnProperty.call(extra, key)) {

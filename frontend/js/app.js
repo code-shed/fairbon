@@ -55,6 +55,7 @@
     var country = $("settings-country");
     var budget = $("settings-budget");
     var byok = $("settings-byok");
+    var byokProvider = $("settings-byok-provider");
     var share = $("settings-share");
 
     function syncLabels() {
@@ -63,6 +64,7 @@
       country.value = NS.state.country || "DE";
       budget.value = NS.state.budget ? String(NS.state.budget) : "";
       byok.value = NS.state.byok || "";
+      byokProvider.value = NS.state.byokProvider || "openai_compatible";
       share.checked = NS.state.shareOptin === true;
     }
 
@@ -80,9 +82,50 @@
     }
 
     $("settings-open").addEventListener("click", open);
-    plzPill.addEventListener("click", open);
     $("settings-close").addEventListener("click", close);
     backdrop.addEventListener("click", close);
+
+    // --- PLZ popover (header pill) -----------------------------------
+    var plzPopover = $("plz-popover");
+    var plzField = $("plz-input");
+    var plzSave = $("plz-save");
+
+    function closePlzPopover() {
+      plzPopover.hidden = true;
+      plzPill.setAttribute("aria-expanded", "false");
+    }
+
+    function savePlzPopover() {
+      NS.setPostalCode(plzField.value);
+      plzField.value = NS.state.postalCode;
+      syncLabels();
+      closePlzPopover();
+      NS.emit("plz-changed", NS.state.postalCode);
+    }
+
+    plzPill.addEventListener("click", function () {
+      plzPopover.hidden = !plzPopover.hidden;
+      var openNow = !plzPopover.hidden;
+      plzPill.setAttribute("aria-expanded", String(openNow));
+      if (openNow) {
+        plzField.value = NS.state.postalCode;
+        plzField.focus();
+        plzField.select();
+      }
+    });
+    plzSave.addEventListener("click", savePlzPopover);
+    plzField.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { savePlzPopover(); }
+      if (event.key === "Escape") { closePlzPopover(); }
+    });
+    document.addEventListener("click", function (event) {
+      if (plzPopover.hidden) { return; }
+      var wrap = plzPopover.parentNode;
+      if (wrap && !wrap.contains(event.target)) { closePlzPopover(); }
+    });
+    plzPill.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") { closePlzPopover(); }
+    });
 
     plzInput.addEventListener("change", function () {
       NS.setPostalCode(plzInput.value);
@@ -101,6 +144,10 @@
     byok.addEventListener("change", function () {
       NS.state.byok = byok.value.trim();
       NS.storage.set("fairbon.byok", NS.state.byok);
+    });
+    byokProvider.addEventListener("change", function () {
+      NS.state.byokProvider = byokProvider.value;
+      NS.storage.set("fairbon.byokProvider", NS.state.byokProvider);
     });
     share.addEventListener("change", function () {
       NS.state.shareOptin = share.checked === true;

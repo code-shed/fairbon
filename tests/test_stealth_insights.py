@@ -311,6 +311,15 @@ def test_site_gate_401_has_no_basic_challenge(client: TestClient) -> None:
     assert "www-authenticate" not in response.headers
 
 
+def test_manifest_is_public_for_pwa_installability(client: TestClient) -> None:
+    force_settings(site_password="geheim123")
+
+    response = client.get("/manifest.webmanifest")
+
+    assert response.status_code == 200
+    assert "cache-control" in response.headers
+
+
 def test_site_gate_sends_browser_pages_to_login(client: TestClient) -> None:
     force_settings(site_password="geheim123")
 

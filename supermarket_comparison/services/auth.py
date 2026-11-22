@@ -28,7 +28,17 @@ COOKIE_NAME: Final = "spv_session"
 SESSION_TTL: Final = 60 * 60 * 24 * 30
 
 #: Paths that bypass the gate entirely.
-PUBLIC_PATHS: Final = frozenset({"/health", "/login", "/logout", "/robots.txt"})
+PUBLIC_PATHS: Final = frozenset(
+    {
+        "/health",
+        "/login",
+        "/logout",
+        "/robots.txt",
+        # The PWA manifest carries only app branding; browsers fetch it
+        # without cookies, so the gate would otherwise block installability.
+        "/manifest.webmanifest",
+    }
+)
 
 
 def _secret(settings: Settings) -> bytes:

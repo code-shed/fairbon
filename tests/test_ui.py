@@ -220,11 +220,39 @@ def test_share_optin_is_bound_to_settings_state() -> None:
     assert 'NS.storage.set("fairbon.share_optin.v1"' in app
 
 
+def test_plz_pill_opens_popover_not_settings() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+
+    assert 'id="plz-popover"' in html
+    assert 'id="plz-input"' in html
+    assert 'id="plz-save"' in html
+    assert 'aria-haspopup="true"' in html
+    assert "plz-popover" in app
+    # The pill must no longer open the full settings modal.
+    assert 'plzPill.addEventListener("click", open)' not in app
+    # Settings stay reachable via their own close button.
+    assert 'settings-close' in app
+
+
+def test_byok_provider_select_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    state = (FRONTEND / "js" / "state.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+    api = (FRONTEND / "js" / "api.js").read_text()
+
+    assert 'id="settings-byok-provider"' in html
+    assert 'value="opencode"' in html
+    assert 'byokProvider: NS.storage.get("fairbon.byokProvider"' in state
+    assert 'NS.storage.set("fairbon.byokProvider"' in app
+    assert '"X-User-Vision-Provider"' in api
+
+
 def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v7" in sw
+    assert "fairbon-v8" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
