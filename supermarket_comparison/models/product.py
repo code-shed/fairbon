@@ -57,7 +57,7 @@ class NormalizedProduct(BaseModel):
 
     id: str = Field(min_length=1, description="Stable, source-specific product id")
     store: str = Field(
-        min_length=1, description="lidl, edeka, rewe, marktguru, openfoodfacts"
+        min_length=1, description="lidl, edeka, rewe, openfoodfacts"
     )
     name: str = Field(min_length=1, description="Product display name")
     brand: str | None = None
@@ -86,7 +86,7 @@ class NormalizedProduct(BaseModel):
         default="prospect",
         description="prospect (Prospekt-Angebot) or standard (Dauersortiment)",
     )
-    #: Upstream provider slug (``marktguru``, ``openprices``, ...).
+    #: Upstream provider slug (``openprices``, ``openfoodfacts``, ...).
     source: str | None = None
     #: Deep link to the leaflet page of this offer, when the provider exposes
     #: one.  Never synthesised for providers that do not.
