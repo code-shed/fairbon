@@ -273,7 +273,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v8" in sw
+    assert "fairbon-v9" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
