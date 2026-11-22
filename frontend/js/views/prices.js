@@ -122,8 +122,8 @@
     NS.api.get("/api/v1/crowd/coverage?postal_code=" + encodeURIComponent(plz))
       .then(function (data) {
         els.coverage.textContent = "PLZ " + plz + ": " + data.observations +
-          (data.observations === 1 ? " Standardpreis" : " Standardpreise") +
-          " erfasst · " + data.products + " Produkte · " + data.stores + " Märkte";
+          " erfasste Preise · " + data.products + " Produkte · " +
+          data.stores + (data.stores === 1 ? " Markt" : " Märkte");
       })
       .catch(function () {
         if (els.coverage) { els.coverage.textContent = ""; }

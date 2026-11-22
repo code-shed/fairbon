@@ -447,3 +447,32 @@ def test_hyphenated_community_names_are_searchable() -> None:
     assert names("Schoko") == ["Schoko-Bons"]
     assert names("H-Milch 3,5%") == ["H-Milch 3,5%"]
     assert names("Fenchelsalami") == ["Fenchelsalami"]
+
+
+def test_coverage_counts_nearby_postal_codes() -> None:
+    """Coverage agrees with search: a neighbouring PLZ sees the same data."""
+    from supermarket_comparison.storage import CommunityPriceInput, Database, Repository
+
+    repo = Repository(Database(":memory:"))
+    repo.community.add_price(
+        CommunityPriceInput(
+            name="Fenchelsalami",
+            store="penny",
+            price=2.49,
+            postal_code="65618",
+            ean=None,
+            unit="stueck",
+            quantity=1.0,
+            scout_id="scout-1",
+            source="receipt",
+            receipt_id=None,
+        ),
+        auto_verify=True,
+    )
+
+    for plz in ("65618", "65617"):
+        summary = repo.community.coverage(plz)
+        assert summary["observations"] == 1
+        assert summary["products"] == 1
+        assert summary["stores"] == 1
+    assert repo.community.coverage("12345")["observations"] == 0

@@ -573,41 +573,39 @@ class CommunityStore:
         return aggregated[: int(limit)]
 
     def coverage(self, postal_code: str) -> dict[str, Any]:
+        wanted = (postal_code or "").strip()
+        # Same nearby-PLZ rule as aggregated_for_query so the coverage text
+        # agrees with what the price search actually finds.
         rows = self.db.query(
             """
-            SELECT COUNT(*) AS observations,
-                   COUNT(DISTINCT identity) AS products,
-                   COUNT(DISTINCT store) AS stores,
-                   COUNT(DISTINCT scout_id) AS scouts,
-                   MAX(created_at) AS last_updated
+            SELECT identity, store, postal_code, scout_id, status, created_at
               FROM community_prices
-             WHERE postal_code = ? AND status IN ('approved', 'verified')
-            """,
-            (postal_code.strip(),),
-        )
-        summary = dict(rows[0]) if rows else {}
-        observations = int(summary.get("observations") or 0)
-        verified = self.db.query_one(
+             WHERE status IN ('approved', 'verified')
             """
-            SELECT COUNT(*) AS n FROM community_prices
-             WHERE postal_code = ? AND status = 'verified'
-            """,
-            (postal_code.strip(),),
         )
+        near = [
+            row
+            for row in rows
+            if self._plz_tier(wanted, row["postal_code"]) <= 2
+        ]
+        observations = len(near)
+        verified = sum(1 for row in near if row["status"] == "verified")
         level = "keine Daten"
         for threshold, label in COVERAGE_LEVELS:
             if observations >= threshold:
                 level = label
                 break
         return {
-            "postal_code": postal_code.strip(),
+            "postal_code": wanted,
             "observations": observations,
-            "products": int(summary.get("products") or 0),
-            "stores": int(summary.get("stores") or 0),
-            "scouts": int(summary.get("scouts") or 0),
-            "verified": int(verified["n"]) if verified else 0,
+            "products": len({row["identity"] for row in near}),
+            "stores": len({row["store"] for row in near}),
+            "scouts": len({row["scout_id"] for row in near if row["scout_id"]}),
+            "verified": verified,
             "level": level,
-            "last_updated": summary.get("last_updated"),
+            "last_updated": max(
+                (row["created_at"] or "" for row in near), default=None
+            ),
         }
 
     def scout_stats(self, scout_id: str) -> dict[str, Any]:

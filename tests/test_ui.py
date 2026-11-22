@@ -293,6 +293,14 @@ def test_receipts_anchor_the_markets_postal_code() -> None:
     )
 
 
+def test_coverage_label_is_about_receipt_prices() -> None:
+    prices = (FRONTEND / "js" / "views" / "prices.js").read_text()
+
+    assert "erfasste Preise" in prices
+    assert "Standardpreis" not in prices
+    assert "Märkte" in prices
+
+
 def test_business_expenses_feature_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     state = (FRONTEND / "js" / "state.js").read_text()
@@ -318,7 +326,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v14" in sw
+    assert "fairbon-v15" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
