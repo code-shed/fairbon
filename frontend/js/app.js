@@ -51,7 +51,6 @@
     var modal = $("settings-modal");
     var backdrop = $("settings-backdrop");
     var plzPill = $("plz-pill");
-    var plzInput = $("settings-plz");
     var country = $("settings-country");
     var budget = $("settings-budget");
     var byok = $("settings-byok");
@@ -61,7 +60,6 @@
 
     function syncLabels() {
       plzPill.textContent = "PLZ " + NS.state.postalCode;
-      plzInput.value = NS.state.postalCode;
       country.value = NS.state.country || "DE";
       budget.value = NS.state.budget ? String(NS.state.budget) : "";
       byok.value = NS.state.byok || "";
@@ -129,11 +127,6 @@
       if (event.key === "Escape") { closePlzPopover(); }
     });
 
-    plzInput.addEventListener("change", function () {
-      NS.setPostalCode(plzInput.value);
-      syncLabels();
-      NS.emit("plz-changed", NS.state.postalCode);
-    });
     country.addEventListener("change", function () {
       NS.state.country = country.value;
       NS.storage.set("fairbon.country", country.value);

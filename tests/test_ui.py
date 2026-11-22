@@ -233,6 +233,8 @@ def test_plz_pill_opens_popover_not_settings() -> None:
     assert 'plzPill.addEventListener("click", open)' not in app
     # Settings stay reachable via their own close button.
     assert 'settings-close' in app
+    # The popover is the only editor for the home PLZ — no settings duplicate.
+    assert 'id="settings-plz"' not in html
 
 
 def test_byok_provider_select_is_wired() -> None:
@@ -317,7 +319,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v12" in sw
+    assert "fairbon-v13" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
