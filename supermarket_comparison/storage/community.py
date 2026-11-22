@@ -499,6 +499,27 @@ class CommunityStore:
             "last_updated": latest,
         }
 
+    @staticmethod
+    def _plz_tier(wanted: str, candidate: str) -> int:
+        """Distance proxy for German-style postal codes.
+
+        0 = exact, 1 = four leading digits, 2 = three, 99 = far away. German
+        PLZs are zoned geographically, so shared leading digits approximate a
+        local radius without maintaining a coordinate table.
+        """
+
+        wanted = (wanted or "").strip()
+        candidate = (candidate or "").strip()
+        if not wanted:
+            return 0
+        if candidate == wanted:
+            return 0
+        shortest = min(len(wanted), len(candidate))
+        for length in range(shortest - 1, 1, -1):
+            if wanted[:length] == candidate[:length]:
+                return shortest - length
+        return 99
+
     def aggregated_for_query(
         self,
         *,
@@ -506,7 +527,7 @@ class CommunityStore:
         postal_code: str | None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
-        """Aggregated community prices whose name matches *query*."""
+        """Aggregated community prices near *postal_code* whose name matches."""
 
         term = normalize_title(query)
         if not term:
@@ -514,9 +535,6 @@ class CommunityStore:
 
         params: list[Any] = [f"%{term}%"]
         clause = "LOWER(name) LIKE ?"
-        if postal_code:
-            clause += " AND postal_code = ?"
-            params.append(postal_code.strip())
 
         rows = self.db.query(
             f"""
@@ -526,9 +544,10 @@ class CommunityStore:
              GROUP BY identity, store, postal_code
              LIMIT ?
             """,
-            (*tuple(params), int(limit)),
+            (*tuple(params), int(limit) * 10),
         )
 
+        wanted = (postal_code or "").strip()
         aggregated: list[dict[str, Any]] = []
         for row in rows:
             entry = self.aggregate(
@@ -537,9 +556,15 @@ class CommunityStore:
                 postal_code=row["postal_code"],
             )
             if entry is not None:
-                aggregated.append(entry)
-        aggregated.sort(key=lambda item: item["median_price"])
-        return aggregated
+                tier = self._plz_tier(wanted, row["postal_code"])
+                if tier <= 2:
+                    entry["_plz_tier"] = tier
+                    aggregated.append(entry)
+        # Exact matches first, then nearby PLZs, then by price as before.
+        aggregated.sort(key=lambda item: (item["_plz_tier"], item["median_price"]))
+        for entry in aggregated:
+            entry.pop("_plz_tier", None)
+        return aggregated[: int(limit)]
 
     def coverage(self, postal_code: str) -> dict[str, Any]:
         rows = self.db.query(

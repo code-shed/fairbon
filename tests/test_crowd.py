@@ -377,3 +377,39 @@ def test_receipt_upload_without_ocr_returns_503(client: TestClient) -> None:
     )
     assert response.status_code == 503
     assert "OCR" in response.json()["detail"]
+
+
+def test_community_search_includes_nearby_postal_codes() -> None:
+    """Nearby PLZs (3-4 shared leading digits) keep local prices visible."""
+    from supermarket_comparison.storage import CommunityPriceInput, Database, Repository
+
+    repo = Repository(Database(":memory:"))
+    for plz in ("65618", "65631", "12345"):
+        repo.community.add_price(
+            CommunityPriceInput(
+                name="Fenchelsalami",
+                store="penny",
+                price=2.49,
+                postal_code=plz,
+                ean=None,
+                unit="stueck",
+                quantity=1.0,
+                scout_id=None,
+                source="receipt",
+                receipt_id=None,
+            ),
+            auto_verify=True,
+        )
+
+    def found(plz: str) -> list[str]:
+        entries = repo.community.aggregated_for_query(
+            query="Fenchelsalami", postal_code=plz
+        )
+        return [entry["postal_code"] for entry in entries]
+
+    # Exact match ranks first; the neighbouring 656xx rows still appear.
+    assert found("65618") == ["65618", "65631"]
+    assert found("65617") == ["65618", "65631"]
+    assert found("65630") == ["65631", "65618"]
+    # An unrelated region stays hidden (no 8k-entry geo table needed).
+    assert found("12345") == ["12345"]
