@@ -410,6 +410,16 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
 
         response = await call_next(request)
 
+        # --- app shell: always revalidate (ETag -> 304), never heuristics --
+        # Browsers "guess" freshness without Cache-Control and keep serving
+        # outdated JS after a deploy; the service worker then caches that
+        # stale copy.  ``no-cache`` forces a cheap ETag revalidation.
+        if (
+            path.startswith(STATIC_PREFIXES)
+            or path in {"/", "/login"}
+        ):
+            response.headers["Cache-Control"] = "no-cache"
+
         # --- security headers --------------------------------------------
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"

@@ -320,3 +320,11 @@ def test_site_gate_sends_browser_pages_to_login(client: TestClient) -> None:
 
     assert response.status_code == 303
     assert response.headers["location"] == "/login"
+
+
+def test_app_shell_is_always_revalidated(client: TestClient) -> None:
+    """Static shell assets must never be served from heuristic caching."""
+
+    for path in ("/", "/login", "/js/api.js", "/css/styles.css", "/sw.js"):
+        response = client.get(path, headers=basic("geheim123"))
+        assert response.headers.get("cache-control") == "no-cache", path

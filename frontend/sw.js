@@ -1,5 +1,5 @@
 /* FairBon service worker — offline shell, API stays network-only. */
-var CACHE = "fairbon-v6";
+var CACHE = "fairbon-v7";
 var SHELL = [
   "./",
   "./css/styles.css",
@@ -21,7 +21,12 @@ var SHELL = [
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return cache.addAll(SHELL);
+      // cache: "reload" bypasses the HTTP cache so a new worker always
+      // stores the freshly deployed files, never a stale copy.
+      return cache.addAll(SHELL.map(function (url) {
+        try { return new Request(url, { cache: "reload" }); }
+        catch (e) { return url; }
+      }));
     }).then(function () { return self.skipWaiting(); })
   );
 });
