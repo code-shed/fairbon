@@ -176,6 +176,9 @@ def test_openapi_schema_lists_all_endpoints(client: TestClient) -> None:
     assert set(schema["paths"]) == {
         "/api/v1/admin/database/records",
         "/api/v1/admin/database/records/{table}/{record_id}",
+        "/api/v1/receipts",
+        "/api/v1/receipts/scan",
+        "/api/v1/receipts/export",
         "/api/v1/admin/database/schema",
         "/api/v1/products/search",
         "/api/v1/products/search/ranked",

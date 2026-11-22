@@ -40,9 +40,11 @@ from .routes import (
     admin_db,
     basket,
     crowd,
+    export as export_router,
     history,
     images,
     products,
+    receipts as receipts_router,
     stores,
     system,
 )
@@ -254,6 +256,8 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
     app.include_router(basket.router, prefix=prefix)
     app.include_router(history.router, prefix=prefix)
     app.include_router(crowd.router, prefix=prefix)
+    app.include_router(receipts_router.router, prefix=prefix)
+    app.include_router(export_router.router, prefix=prefix)
     app.include_router(system.router, prefix=prefix)
     app.include_router(admin_db.router, prefix=prefix)
 

@@ -384,6 +384,169 @@ class Repository:
 
         return [dict(row) for row in rows if _matches(row)]
 
+    # -- user receipts (V1.0, guest mode via owner_token) -----------------
+    def insert_user_receipt(
+        self,
+        *,
+        owner_token: str,
+        store: str,
+        postal_code: str | None,
+        country_code: str,
+        currency: str,
+        receipt_date: str,
+        total_cents: int,
+        shared_to_community: bool,
+        items: Iterable[dict[str, Any]],
+    ) -> int:
+        """Insert a personal receipt and return its id.
+
+        ``owner_token`` is the only access key (guest mode). Items are stored
+        as cents (integers) to avoid float drift.
+        """
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(tz=UTC).isoformat()
+        cursor = self.db.execute(
+            """
+            INSERT INTO user_receipts
+                (owner_token, store, postal_code, country_code, currency,
+                 receipt_date, total_cents, shared_to_community, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                owner_token,
+                store,
+                postal_code,
+                country_code,
+                currency,
+                receipt_date,
+                int(total_cents),
+                1 if shared_to_community else 0,
+                now,
+            ),
+        )
+        receipt_id = int(cursor.lastrowid)
+
+        self.db.executemany(
+            """
+            INSERT INTO user_receipt_items
+                (receipt_id, raw_text, normalized_name, brand, category,
+                 quantity, unit, unit_price_cents, price_cents, discount_cents,
+                 deposit_cents, vat_rate, is_private)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    receipt_id,
+                    item.get("raw_text", ""),
+                    item.get("normalized_name"),
+                    item.get("brand"),
+                    item.get("category"),
+                    item.get("quantity"),
+                    item.get("unit"),
+                    item.get("unit_price_cents"),
+                    item.get("price_cents"),
+                    item.get("discount_cents", 0),
+                    item.get("deposit_cents", 0),
+                    item.get("vat_rate"),
+                    1 if item.get("is_private") else 0,
+                )
+                for item in items
+            ],
+        )
+        return receipt_id
+
+    def user_receipts_for(self, owner_token: str) -> list[dict[str, Any]]:
+        rows = self.db.query(
+            """
+            SELECT * FROM user_receipts WHERE owner_token = ?
+             ORDER BY receipt_date DESC, id DESC
+            """,
+            (owner_token,),
+        )
+        return [dict(row) for row in rows]
+
+    def user_receipt_items_for(self, receipt_id: int) -> list[dict[str, Any]]:
+        rows = self.db.query(
+            """
+            SELECT * FROM user_receipt_items
+             WHERE receipt_id = ? ORDER BY id ASC
+            """,
+            (int(receipt_id),),
+        )
+        return [dict(row) for row in rows]
+
+    # -- receipt aliases (self-learning) -----------------------------------
+    def resolve_alias(
+        self, *, store: str, raw_text_norm: str
+    ) -> dict[str, Any] | None:
+        row = self.db.query_one(
+            """
+            SELECT * FROM receipt_aliases
+             WHERE store = ? AND raw_text_norm = ?
+            """,
+            (store, raw_text_norm),
+        )
+        return dict(row) if row else None
+
+    def upsert_alias(
+        self,
+        *,
+        store: str,
+        raw_text_norm: str,
+        normalized_name: str,
+        brand: str | None,
+        category: str | None,
+        quantity: float | None,
+        unit: str | None,
+    ) -> None:
+        from datetime import UTC, datetime
+
+        now = datetime.now(tz=UTC).isoformat()
+        self.db.execute(
+            """
+            INSERT INTO receipt_aliases
+                (store, raw_text_norm, normalized_name, brand, category,
+                 quantity, unit, hit_count, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            ON CONFLICT(store, raw_text_norm) DO UPDATE SET
+                normalized_name = excluded.normalized_name,
+                brand           = excluded.brand,
+                category        = excluded.category,
+                quantity        = excluded.quantity,
+                unit            = excluded.unit,
+                hit_count       = hit_count + 1,
+                updated_at      = excluded.updated_at
+            """,
+            (
+                store,
+                raw_text_norm,
+                normalized_name,
+                brand,
+                category,
+                quantity,
+                unit,
+                now,
+                now,
+            ),
+        )
+
+    async def ainsert_user_receipt(self, **kwargs: Any) -> int:
+        return await asyncio.to_thread(self.insert_user_receipt, **kwargs)
+
+    async def auser_receipts_for(self, owner_token: str) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self.user_receipts_for, owner_token)
+
+    async def auser_receipt_items_for(self, receipt_id: int) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self.user_receipt_items_for, receipt_id)
+
+    async def aresolve_alias(self, **kwargs: Any) -> dict[str, Any] | None:
+        return await asyncio.to_thread(self.resolve_alias, **kwargs)
+
+    async def aupsert_alias(self, **kwargs: Any) -> None:
+        await asyncio.to_thread(self.upsert_alias, **kwargs)
+
     # -- product images ---------------------------------------------------
     def set_product_image(self, *, name: str, ean: str | None, image_url: str) -> int:
         """Attach an image URL to every product row matching *name* / *ean*."""

@@ -1,7 +1,29 @@
-"""API route modules."""
+"""API route modules (imported directly by ``api.main``)."""
 
 from __future__ import annotations
 
-from . import basket, crowd, history, products, stores
+from . import (
+    admin_db,
+    basket,
+    crowd,
+    export,
+    history,
+    images,
+    products,
+    receipts,
+    stores,
+    system,
+)
 
-__all__ = ["basket", "crowd", "history", "products", "stores"]
+__all__ = [
+    "admin_db",
+    "basket",
+    "crowd",
+    "export",
+    "history",
+    "images",
+    "products",
+    "receipts",
+    "stores",
+    "system",
+]
