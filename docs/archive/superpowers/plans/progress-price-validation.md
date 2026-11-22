@@ -1,3 +1,5 @@
+> **Archived:** historical German design/plan record (pre-V1.0). Active documentation is in English.
+
 # Ledger — Plausibilitätsprüfung Community-Preise
 
 Plan: docs/superpowers/plans/2026-11-05-price-validation.md

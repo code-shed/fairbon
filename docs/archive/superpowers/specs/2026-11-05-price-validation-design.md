@@ -1,3 +1,5 @@
+> **Archived:** historical German design/plan record (pre-V1.0). Active documentation is in English.
+
 # Design — Plausibilitätsprüfung für Community-Preise (Strict Mode)
 
 Datum: 2026-11-05

@@ -1,3 +1,5 @@
+> **Archived:** historical German design/plan record (pre-V1.0). Active documentation is in English.
+
 # Anreicherung generischer Produkttitel & sauberes Produkt-Matching
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

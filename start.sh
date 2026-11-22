@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Startet den Supermarkt-Preisvergleich.
-# Funktioniert aus jedem Verzeichnis, ohne uv/uvicorn im PATH.
+# Starts FairBon.
+# Works from any directory, without uv/uvicorn on PATH.
 #
 #   ./start.sh              # http://localhost:8000/
-#   PORT=8080 ./start.sh    # anderer Port
-#   RELOAD=1 ./start.sh     # Auto-Reload für Entwicklung
+#   PORT=8080 ./start.sh    # different port
+#   RELOAD=1 ./start.sh     # auto-reload for development
 set -euo pipefail
 
 cd "$(dirname "$(readlink -f "$0")")"
 
 if [ ! -x .venv/bin/uvicorn ]; then
-  echo "Die virtuelle Umgebung fehlt. Einmalig einrichten:"
+  echo "The virtual environment is missing. Set it up once:"
   echo "  cd \"$(pwd)\""
-  echo "  ~/.local/bin/uv sync"
+  echo "  uv sync --python 3.12"
   exit 1
 fi
 
-# Optionale .env laden (Passwort, Harvester, Datenbankpfad ...)
+# Load optional .env (passwords, vision keys, database path, ...)
 if [ -f .env ]; then
   set -a
   # shellcheck disable=SC1091
@@ -31,9 +31,9 @@ if [ "${RELOAD:-0}" = "1" ]; then
   ARGS+=(--reload)
 fi
 
-echo "Supermarkt-Preisvergleich läuft auf http://localhost:${PORT}/"
+echo "FairBon is running on http://localhost:${PORT}/"
 if [ -n "${SITE_PASSWORD:-}" ]; then
-  echo "Passwortschutz aktiv (SITE_PASSWORD gesetzt) – Login unter /login."
+  echo "Password protection active (SITE_PASSWORD set) – login at /login."
 fi
 
 exec ./.venv/bin/uvicorn supermarket_comparison.api.main:app "${ARGS[@]}" "$@"

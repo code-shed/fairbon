@@ -41,33 +41,42 @@ FairBon helps you **track purchases, compare prices, and save money** – **with
 > the hardened Docker setup (127.0.0.1 binding, 512 MB limit, Caddy, Turnstile,
 > backups, UFW, fail2ban).
 
-
-> **Early Alpha** – the receipt tracker, community prices and smart basket
-> already run locally. Photo scans need a vision key (or use the demo receipt).
-
 ```bash
-# 1. Clone repository
+# 1. Clone
 git clone https://github.com/code-shed/fairbon.git
 cd fairbon
 
-# 2. Python environment (recommended: uv or venv)
-python -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -e ".[dev]"   # once pyproject.toml exists
+# 2. Dependencies + Python 3.12 (uv installs it if needed)
+uv sync --python 3.12
 
-# 3. Pre-commit hooks (later)
-pre-commit install
+# 3. Optional: passwords and vision provider
+cp .env.example .env
+chmod 600 .env
+# set SITE_PASSWORD, ADMIN_PASSWORD, SESSION_SECRET and VISION_* keys
 
-# 4. Run tests
-pytest -q
+# 4. Start
+./start.sh
+# → http://localhost:8000/
 ```
 
-**Planned Tech Stack** (open for discussion – see [Issues](https://github.com/code-shed/fairbon/issues)):
-- **Backend:** Python (FastAPI / SQLAlchemy / Pydantic) – local as single binary or Docker
-- **Frontend:** Web UI (HTMX + Tailwind or React) + optional Native Desktop (Tauri/Electron)
-- **OCR:** Tesseract / PaddleOCR / Apple Vision / Google ML Kit (local)
-- **Storage:** SQLite (local), later maybe DuckDB for analytics
+Checks:
+
+```bash
+uv run pytest -q
+uv run ruff check .
+```
+
+**Try it without an API key:** open the app and click
+*"Nur zum Testen? Beispiel-Bon ausprobieren"* — a static German demo receipt
+runs the full review/checklist flow with zero API cost.
+
+**Photo scans** need a vision key (`VISION_PRIMARY_*`, e.g. Gemini, Mistral,
+OpenAI-compatible or OpenCode). Without a key, eBon text/PDF/manual entry works
+fully offline and free.
+
+**Tech stack:** Python 3.12, FastAPI, Pydantic v2, SQLite (WAL), httpx,
+Pillow, pypdf, openpyxl, pytest, ruff, and a modular vanilla-JS PWA
+(Capacitor-ready, no build step).
 
 ---
 
@@ -76,7 +85,7 @@ pytest -q
 We welcome **every kind of contribution**: code, docs, issues, ideas, tests, translations, design.
 
 ### 1. Project Board & Work Packages
-👉 **Central overview:** [GitHub Project Board "@fairbon"](https://github.com/users/code-shed/projects/1)  
+👉 **Central overview:** [GitHub Project Board "@fairbon"](https://github.com/users/code-shed/projects/1)
 There you'll see: Backlog → Ready → In Progress → Review → Done
 
 ### 2. Good First Step
@@ -94,49 +103,46 @@ feature/short-description   (your branch)
 
 - **Commits:** Conventional Commits (`feat: add receipt parser`)
 - **PR Template** coming soon – for now: briefly describe *What & Why*
-- **Tests & Lint** must pass (CI comes with first code)
+- **Tests & Lint** must pass (`uv run pytest -q`, `uv run ruff check .`)
 
 ### 4. Code of Conduct
-Friendly, constructive, respectful – [Contributor Covenant](https://www.contributor-covenant.org/) (will be linked once `CODE_OF_CONDUCT.md` exists).
+Friendly, constructive, respectful – [Contributor Covenant](https://www.contributor-covenant.org/).
 
 ---
 
-## 🗺 Roadmap (High-Level)
+## 🗺 Roadmap
 
-| Phase | Goal | Milestone |
-|-------|------|-----------|
-| **0** | Repo structure, CI, dev setup, license | ✅ *in progress* |
-| **1** | Data model (products, markets, prices, receipts), SQLite schema, basic CRUD | 🎯 *next* |
-| **2** | Receipt import (manual + OCR prototype) | |
-| **3** | Price history, charts, export (CSV/JSON) | |
-| **4** | Smart Basket & cross-market price comparison | |
-| **5** | Desktop App (Tauri), Installer, Auto-Update | |
-| **6** | Community features: price reports, crowdsourcing (opt-in, anonymous) | |
+| Phase | Goal | Status |
+|-------|------|--------|
+| **1** | Cleanup, receipt/alias schema, fail-closed security, WAL | ✅ done |
+| **2** | Vision scanner (failover/BYOK), upload hardening, 2-sheet Excel export | ✅ done |
+| **3** | Modular PWA, 4-tab UI, demo receipt, branding | ✅ done |
+| **4** | Hardened Docker deployment, security guide | ✅ done |
+| **5** | Real receipt data, moderation workflow, always-on deployment | 🎯 next |
+| **6** | Price trends over real data, monthly reports, alerts | planned |
 
 ---
 
-## 📂 Project Structure (Planned)
+## 📂 Project Structure
 
 ```text
 fairbon/
-├── .github/                 # Workflows, Issue/PR templates
-├── docs/                    # Architecture, ADRs, API docs
-├── fairbon/                 # Python package (Backend)
-│   ├── api/                 # FastAPI routers
-│   ├── core/                # Config, Security, DB
-│   ├── models/              # SQLAlchemy/Pydantic models
-│   ├── services/            # Business logic (OCR, Matching, Analytics)
-│   └── cli.py               # Typer/Click CLI
-├── frontend/                # Web UI (later)
+├── supermarket_comparison/
+│   ├── api/                 # FastAPI app, routes, security middleware
+│   ├── services/            # vision, upload security, aggregator, validator
+│   ├── storage/             # SQLite repository, community prices, schema
+│   └── normalization/       # units, brands, matching, relevance
+├── frontend/                # modular PWA (CSS, JS views, manifest, SW)
 ├── tests/                   # pytest (unit + integration)
-├── scripts/                 # Dev helpers (db-migrate, seed, etc.)
-├── pyproject.toml           # Build, deps, tool config (ruff, mypy, pytest)
-├── .gitignore
-├── LICENSE                  # AGPL-3.0
-└── README.md                # this file
+├── scripts/                 # seed_demo.py, QA helpers
+├── assets/branding/         # logo + banners (README/social)
+├── docs/                    # architecture, migration, design notes
+├── Dockerfile               # non-root production image
+├── docker-compose.yml       # 127.0.0.1 binding, 512 MB, read-only
+├── SECURITY_DEPLOYMENT.md   # production guide (Caddy, UFW, backups)
+├── pyproject.toml, uv.lock  # reproducible dependencies
+└── start.sh                 # local start
 ```
-
----
 
 ## 🎨 Branding
 

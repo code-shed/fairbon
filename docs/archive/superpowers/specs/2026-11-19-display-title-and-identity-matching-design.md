@@ -1,3 +1,5 @@
+> **Archived:** historical German design/plan record (pre-V1.0). Active documentation is in English.
+
 # Design — Anreicherung generischer Produkttitel & sauberes Produkt-Matching
 
 Datum: 2026-11-19

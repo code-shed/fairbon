@@ -1,9 +1,9 @@
 # FairBon — Production Deployment & Security
 
-Kompakte Anleitung für einen produktiven, gehärteten Betrieb. Zielbild:
+Compact guide for a hardened production deployment. Target topology:
 
 ```
-Internet ──► Cloudflare (optional, TLS/WAF) ──► Caddy (TLS, 3-MB-Limit)
+Internet ──► Cloudflare (optional, TLS/WAF) ──► Caddy (TLS, 3 MB limit)
                                                    │
                                                    ▼
                                     127.0.0.1:8000  FairBon (Docker, non-root)
@@ -12,16 +12,16 @@ Internet ──► Cloudflare (optional, TLS/WAF) ──► Caddy (TLS, 3-MB-Lim
                                         ./data/supermarkt.db (bind mount)
 ```
 
-Der App-Container ist **nur auf localhost** erreichbar; TLS und das Upload-Limit
-übernimmt der Reverse Proxy.
+The app container is **only reachable on localhost**; TLS and the upload limit
+are handled by the reverse proxy.
 
 ---
 
-## 1. Voraussetzungen
+## 1. Prerequisites
 
-- Linux-VPS (Debian/Ubuntu), 1 vCPU / 1 GB RAM / 10 GB Disk reichen.
-- Docker + Compose-Plugin.
-- Domain (optional, aber für TLS empfohlen).
+- Linux VPS (Debian/Ubuntu), 1 vCPU / 1 GB RAM / 10 GB disk is enough.
+- Docker + Compose plugin.
+- A domain (optional, but recommended for TLS).
 
 ```bash
 apt update && apt install -y docker.io docker-compose-plugin git ufw fail2ban
@@ -36,40 +36,46 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Pflicht/Vernunft:
+Required / recommended:
 
-| Variable | Empfehlung |
+| Variable | Recommendation |
 |---|---|
-| `SITE_PASSWORD` | starkes Passwort (`openssl rand -base64 24`) |
+| `SITE_PASSWORD` | strong password (`openssl rand -base64 24`) |
 | `SESSION_SECRET` | `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | **eigenes**, starkes Passwort (ohne → Admin/Moderation 503) |
-| `SUPERMARKET_CORS_ORIGINS` | exakte Origin, z. B. `https://fairbon.example.org` |
-| `TRUST_PROXY` | `true` **nur** hinter Caddy/Cloudflare |
-| `MAX_SCANS_PER_DAY_PER_IP` | Default 15 |
-| `MAX_GLOBAL_SCANS_PER_DAY` | Default 500 (Kostenbremse) |
-| `VISION_PRIMARY_*` / `VISION_FALLBACK_*` | mindestens ein Provider + Key |
+| `ADMIN_PASSWORD` | **separate** strong password (without it admin/moderation return 503) |
+| `SUPERMARKET_CORS_ORIGINS` | exact origin, e.g. `https://fairbon.example.org` |
+| `TRUST_PROXY` | `true` **only** behind Caddy/Cloudflare |
+| `MAX_SCANS_PER_DAY_PER_IP` | default 15 |
+| `MAX_GLOBAL_SCANS_PER_DAY` | default 500 (cost brake) |
+| `VISION_PRIMARY_*` / `VISION_FALLBACK_*` | at least one provider + key |
 
-> `ADMIN_PASSWORD` ist fail-closed: Fehlt es, antworten `/admin`,
-> Backup/Restore und die Moderations-Endpunkte mit **503**. Falsches Passwort
-> → **401**. Der Vergleich ist constant-time (`hmac.compare_digest`).
+> `ADMIN_PASSWORD` is fail-closed: if missing, `/admin`, backup/restore and
+> moderation endpoints answer **503**. Wrong password → **401**. Comparison is
+> constant-time (`hmac.compare_digest`).
+>
+> If `SITE_PASSWORD` is also set, `/admin` requires **both** gates: the site
+> login cookie **and** HTTP Basic auth with `ADMIN_PASSWORD`. Browser flow:
+> log in at `/login`, then open `/admin` and enter the admin password in the
+> Basic-auth prompt. API clients: `POST /login` once, keep the cookie, then
+> send the admin Basic header.
 
 ## 3. Start
 
 ```bash
 mkdir -p data
-sudo chown -R 1000:1000 data      # Container läuft als UID/GID 1000 (app)
+sudo chown -R 1000:1000 data      # container runs as UID/GID 1000 (app)
 docker compose up -d --build
-docker compose ps                 # muss "healthy" zeigen
+docker compose ps                 # must show "healthy"
 curl -fsS http://127.0.0.1:8000/health
 ```
 
-Die Compose-Datei setzt bereits:
+`docker-compose.yml` already sets:
 
-- `ports: 127.0.0.1:8000:8000` (kein direkter Internet-Zugriff)
+- `ports: 127.0.0.1:8000:8000` (no direct internet access)
 - `mem_limit: 512m`, `read_only: true`, `tmpfs: /tmp`
 - `security_opt: no-new-privileges:true`, `cap_drop: ALL`
 - `restart: unless-stopped`, `stop_grace_period: 30s`
-- persistentes `./data`-Volume (SQLite + WAL)
+- persistent `./data` volume (SQLite + WAL)
 
 ## 4. Reverse Proxy (Caddy)
 
@@ -79,7 +85,7 @@ Die Compose-Datei setzt bereits:
 fairbon.example.org {
     encode gzip zstd
 
-    # Harte Obergrenze für Foto-/PDF-Uploads (App prüft zusätzlich 3 MB).
+    # Hard cap for photo/PDF uploads (the app additionally enforces 3 MB).
     request_body {
         max_size 3MB
     }
@@ -96,17 +102,17 @@ fairbon.example.org {
 systemctl reload caddy
 ```
 
-Caddy holt TLS-Zertifikate automatisch. Die App setzt zusätzlich
+Caddy obtains TLS certificates automatically. The app also sets
 `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`,
-`Permissions-Policy` und eine restriktive `Content-Security-Policy`.
+`Permissions-Policy` and a restrictive `Content-Security-Policy`.
 
 ## 5. Cloudflare + Turnstile (optional)
 
-1. Domain in Cloudflare anlegen, Proxy (orange Wolke) aktivieren.
-2. **Turnstile** → Widget erstellen → Site-/Secret-Key in `.env`:
+1. Add the domain to Cloudflare and enable the proxy (orange cloud).
+2. Create a **Turnstile** widget → put site/secret keys in `.env`:
    `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`.
-3. `TRUST_PROXY=true` setzen, damit `CF-Connecting-IP` fürs Rate-Limiting zählt.
-4. Ohne Turnstile-Keys wird der Bot-Schutz sauber übersprungen.
+3. Set `TRUST_PROXY=true` so `CF-Connecting-IP` is used for rate limiting.
+4. Without Turnstile keys the bot protection is skipped cleanly.
 
 ## 6. Firewall & fail2ban
 
@@ -119,16 +125,16 @@ ufw allow 443/tcp
 ufw enable
 ```
 
-- **Port 8000 niemals öffentlich öffnen** — er ist an `127.0.0.1` gebunden.
-- fail2ban: `sshd`-Jail aktivieren (`/etc/fail2ban/jail.local`), optional
-  ein Caddy-Log-Jail für wiederholte 4xx/429.
+- **Never expose port 8000 publicly** — it is bound to `127.0.0.1`.
+- fail2ban: enable the `sshd` jail (`/etc/fail2ban/jail.local`), optionally a
+  Caddy log jail for repeated 4xx/429.
 
 ## 7. Backups
 
-Die SQLite-DB ist das Herzstück. Empfohlen: tägliches Backup + wöchentlicher
-Restore-Test.
+The SQLite database is the core asset. Recommended: daily backups plus a weekly
+restore test.
 
-**Variante A — Admin-API (konsistent, WAL-safe):**
+**Option A — admin API (consistent, WAL-safe):**
 
 ```bash
 curl -fsS -u admin:"$ADMIN_PASSWORD" \
@@ -136,22 +142,22 @@ curl -fsS -u admin:"$ADMIN_PASSWORD" \
   -o "/backup/fairbon-$(date +%F).db"
 ```
 
-**Variante B — lokal per SQLite-Backup:**
+**Option B — local SQLite backup:**
 
 ```bash
 sqlite3 /opt/fairbon/data/supermarkt.db \
   ".backup '/backup/fairbon-$(date +%F).db'"
 ```
 
-Danach offsite kopieren (z. B. `restic`, `rclone`) und Aufbewahrung
-(7 täglich / 4 wöchentlich) regeln. `data/`-Rechte: `1000:1000`.
+Then copy offsite (e.g. `restic`, `rclone`) and apply retention
+(7 daily / 4 weekly). `data/` permissions: `1000:1000`.
 
 ## 8. Monitoring
 
-- UptimeRobot (oder ähnlich): HTTPS-Monitor auf
-  `https://fairbon.example.org/health`, Keyword `"status":"ok"`.
-- `/health` ist bewusst **ohne Auth** erreichbar.
-- Docker-Healthcheck ist eingebaut (`docker compose ps`).
+- UptimeRobot (or similar): HTTPS monitor on
+  `https://fairbon.example.org/health`, keyword `"status":"ok"`.
+- `/health` is deliberately reachable **without auth**.
+- A Docker healthcheck is built in (`docker compose ps`).
 
 ## 9. Updates
 
@@ -163,50 +169,49 @@ docker compose ps
 curl -fsS http://127.0.0.1:8000/health
 ```
 
-Vorher ein Backup ziehen. Der Service-Worker-Cache wird über die
-`CACHE`-Version in `frontend/sw.js` invalidiert; bei Frontend-Änderungen
-die Version erhöhen.
+Take a backup first. The service-worker cache is invalidated via the `CACHE`
+version in `frontend/sw.js`; bump it on frontend changes.
 
-## 10. Kosten- & Missbrauchsschutz
+## 10. Cost & abuse protection
 
-- Foto-Scan: **3/Minute** und **15/Tag pro IP** (konfigurierbar), zusätzlich
-  globaler Tagesdeckel (`MAX_GLOBAL_SCANS_PER_DAY`, Default 500).
-- BYOK (`X-User-Vision-Key`) umgeht die serverseitigen Limits; der Key wird
-  nie gespeichert oder geloggt.
-- eBon-/PDF-/Text-Import läuft **lokal** und verbraucht kein API-Budget.
-- Uploads: Magic-Byte-Prüfung (JPEG/PNG/WebP/PDF), 3-MB-Limit,
-  Pillow-Re-Encoding im RAM (EXIF/GPS werden entfernt), Decompression-Bomb-Guard.
+- Photo scan: **3/minute** and **15/day per IP** (configurable), plus a global
+  daily cap (`MAX_GLOBAL_SCANS_PER_DAY`, default 500).
+- BYOK (`X-User-Vision-Key`) bypasses server-side limits; the key is never
+  stored or logged.
+- eBon/PDF/text import runs **locally** and consumes no API budget.
+- Uploads: magic-byte validation (JPEG/PNG/WebP/PDF), 3 MB limit,
+  Pillow re-encoding in RAM (EXIF/GPS stripped), decompression-bomb guard.
 
-## 11. Datenschutz & Recht
+## 11. Privacy & legal
 
-- Keine Prospekt-/Supermarkt-Scraper, keine fremden Logos oder Prospektbilder.
-- Kassenbons bleiben lokal (Gast-Token im Browser); kein Account, kein Tracking.
-- Community-Preise nur bei **explizitem Opt-in**, ohne `owner_token` und ohne
-  `receipt_id`; Demo-Bons werden serverseitig vom Community-Pool ausgeschlossen.
-- Preis-Plausibilität + Quarantäne (`pending_review`) verhindern Ausreißer.
-- Keine EC-/Kartendaten, IBAN-Reste, Payback-/Kundennummern oder TSE-Daten.
+- No leaflet/supermarket scrapers, no third-party logos or leaflet images.
+- Receipts stay local (guest token in the browser); no account, no tracking.
+- Community prices only with **explicit opt-in**, without `owner_token` and
+  without `receipt_id`; demo receipts are excluded server-side.
+- Price plausibility checks + quarantine (`pending_review`) prevent outliers.
+- No card data, IBAN remnants, loyalty-card numbers or TSE data.
 
-## 12. Checkliste vor Go-Live
+## 12. Go-live checklist
 
-- [ ] `.env` mit starken, einzigartigen Passwörtern, `chmod 600`
-- [ ] `ADMIN_PASSWORD` gesetzt, `/admin` getestet (401 ohne, 200 mit)
-- [ ] Caddy mit TLS, `max_body_size 3MB`, HSTS
-- [ ] `ufw` aktiv, Port 8000 nicht öffentlich
+- [ ] `.env` with strong, unique passwords, `chmod 600`
+- [ ] `ADMIN_PASSWORD` set, `/admin` tested (401 without, 200 with)
+- [ ] Caddy with TLS, `max_body_size 3MB`, HSTS
+- [ ] `ufw` active, port 8000 not public
 - [ ] `docker compose ps` → healthy
-- [ ] UptimeRobot auf `/health`
-- [ ] Backup-Job + Restore-Test
-- [ ] `SITE_PASSWORD`/`STEALTH_MODE` bewusst gesetzt
-- [ ] Vision-Provider-Keys gesetzt oder Foto-Scan deaktiviert (eBon/Text geht immer)
+- [ ] UptimeRobot on `/health`
+- [ ] Backup job + restore test
+- [ ] `SITE_PASSWORD`/`STEALTH_MODE` set deliberately
+- [ ] Vision provider keys set, or photo scan disabled (eBon/text always works)
 
 ## 13. Troubleshooting
 
-| Symptom | Ursache / Lösung |
+| Symptom | Cause / fix |
 |---|---|
-| `/admin` → 503 | `ADMIN_PASSWORD` fehlt → in `.env` setzen, Container neu starten |
-| `/admin` → 401 | Basic-Auth-Passwort falsch; Benutzername ist beliebig |
-| 429 beim Scan | IP-/Tageslimit oder globaler Deckel erreicht; BYOK oder eBon nutzen |
-| 413 beim Upload | Datei > 3 MB (App oder Caddy `request_body`) |
-| 502 beim Scan | Vision-Provider nicht erreichbar/konfiguriert; `docker compose logs app` |
-| `database is locked` | WAL + `busy_timeout=5000` sind aktiv; parallele Backups vermeiden |
-| Schreibfehler auf `data/` | `sudo chown -R 1000:1000 data` |
-| Frontend 404 | `frontend/` muss im Image sein (`SUPERMARKET_FRONTEND_DIR=/app/frontend`) |
+| `/admin` → 503 | `ADMIN_PASSWORD` missing → set it in `.env`, restart |
+| `/admin` → 401 | wrong Basic-auth password; username is arbitrary |
+| 429 on scan | IP/day limit or global cap reached; use BYOK or eBon |
+| 413 on upload | file > 3 MB (app or Caddy `request_body`) |
+| 502 on scan | vision provider unreachable/misconfigured; see `docker compose logs app` |
+| `database is locked` | WAL + `busy_timeout=5000` are active; avoid parallel backups |
+| write errors on `data/` | `sudo chown -R 1000:1000 data` |
+| frontend 404 | `frontend/` must be in the image (`SUPERMARKET_FRONTEND_DIR=/app/frontend`) |

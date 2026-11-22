@@ -1,56 +1,61 @@
-# Supermarkt-Preisvergleich V1.0 — Architektur-Umbau
+# FairBon V1.0 — Architecture Rebuild
 
-**Status (2026-11-22):** Phasen 1–4 umgesetzt — Cleanup, Scanner/Export, PWA-Frontend & Deployment-Härtung; Tests und Lint grün.
+**Status (2026-11-22):** Phases 1–4 complete — cleanup, scanner/export, PWA
+frontend and deployment hardening; tests and lint green.
 
-**Strategische Neuausrichtung:** Weg von externen Prospekt-Scraping (Marktguru), hin zu einer
-100 % legalen, datenschutzfreundlichen Open-Source-App zum Kassenbon- & Ausgaben-Tracking
-mit 1-Klick-Excel-Export und Community-Preisvergleich (anonymisiertes Opt-in).
+**Strategic direction:** FairBon is a 100% legal, privacy-friendly open-source
+receipt and expense tracker with a 1-click Excel export. Users can optionally
+contribute anonymised product prices to the community price comparison and the
+smart-basket optimiser. No leaflet scraping, no third-party supermarket logos.
 
 ---
 
-## Phase 1 — Cleanup, DB-Schema & Security-Basis
+## Phase 1 — Cleanup, database schema & security baseline
 
-- Marktguru/Scraper/Harvester entfernen
-- SQLite WAL + neue Tabellen (`user_receipts`, `user_receipt_items`, `receipt_aliases`)
-- Fail-Closed `ADMIN_PASSWORD`, CORS, Security-Header
-- Rate-Limiting/Circuit-Breaker-Grundgerüst
+- Remove Marktguru/kaufDA scrapers and the weekly harvester
+- SQLite WAL + `busy_timeout=5000`, new tables (`user_receipts`,
+  `user_receipt_items`, `receipt_aliases`)
+- Fail-closed `ADMIN_PASSWORD`, CORS, security headers
+- Rate-limiting / circuit-breaker foundation
 - `scripts/seed_demo.py`
-- Alle Tests grün, `ruff check .` sauber
+- All tests green, `ruff check .` clean
 
-## Phase 2 — Scanner-Pipeline & Excel-Export (Backend)
+## Phase 2 — Scanner pipeline & Excel export (backend)
 
-- Upload-Sanitizing (Magic Bytes, 3 MB, Pillow EXIF-Strip im RAM)
-- `services/receipt_vision.py` (Dual-Provider-Fallback + Prompt-Injection-Abwehr + eBon-Fallback)
-- `api/receipts.py` (striktes Community-Opt-in, kein `owner_token`-Leak)
-- `api/export.py` (3-Sheet-`.xlsx` & `.csv`)
-- Tests grün
+- Upload sanitising in RAM (magic bytes, 3 MB, Pillow EXIF strip)
+- `services/receipt_vision.py` (dual-provider failover, prompt-injection
+  defence, eBon fallback)
+- `api/routes/receipts.py` (strict community opt-in, no owner-token leak)
+- `api/routes/export.py` (2-sheet `.xlsx` and `.csv`)
+- All tests green
 
-## Phase 3 — Frontend-Modularisierung & 4-Tab-App (PWA + Capacitor-ready)
+## Phase 3 — Frontend modularisation & 4-tab app (PWA, Capacitor-ready)
 
-- Zerlegung in `frontend/`-Struktur (App-Shell, CSS, JS-Module)
-- `manifest.webmanifest` + `sw.js` (PWA)
-- 4 Tabs: Übersicht, Bons, Preise, Liste
-- Bottom-Sheet mit Canvas-Komprimierung
-- Mobile-First (Safe Areas, Touch-Ergonomie, `100dvh`)
+- Split into `frontend/` (app shell, CSS, JS modules)
+- `manifest.webmanifest` + `sw.js`
+- Four tabs: Overview, Receipts, Prices, List
+- Bottom sheets with canvas compression
+- Mobile-first (safe areas, touch ergonomics, `100dvh`)
+- Interactive demo receipt with live scan checklist and discount badges
 
-## Phase 4 — Deployment-Härtung & Abschluss-Check
+## Phase 4 — Deployment hardening & final check
 
-- Non-Root Dockerfile, gehärtete `docker-compose.yml`
-- `.env.example` mit allen neuen Variablen
+- Non-root Dockerfile, hardened `docker-compose.yml` (127.0.0.1, `mem_limit`)
+- `.env.example` with all variables
 - `SECURITY_DEPLOYMENT.md`
-- Vollständiger `pytest`- + `ruff`-Durchlauf
+- Full `pytest` + `ruff` run
 
 ---
 
-## Mobile-First & Capacitor-Zusatz (gilt für Phase 3)
+## Mobile-first & Capacitor notes (Phase 3)
 
-- Viewport: `viewport-fit=cover`, Apple-PWA-Meta, `safe-area-inset-*`
-- Touch: 44×44 px, `touch-action: manipulation`, `16px` Inputs, `100dvh`
-- Relative Pfade in `frontend/` (Capacitor `webDir`-kompatibel)
-- Kamera/Datei-Zugriff in `frontend/js/platform.js` gekapselt
+- Viewport `viewport-fit=cover`, Apple PWA meta tags, `safe-area-inset-*`
+- 44×44 px touch targets, `touch-action: manipulation`, 16 px inputs, `100dvh`
+- Relative paths inside `frontend/` (Capacitor `webDir` compatible)
+- Camera/file access encapsulated in `frontend/js/platform.js`
 
-## Scope-Grenzen (NICHT in V1.0)
+## Out of scope (V1.0)
 
-- Kein E-Mail-/Passwort-Login
-- Keine Bon-Weiterleitung, kein QR-Reader, keine Händler-App-Integration
-- Keine Prospekt-PDF-Scraper, kein DATEV-/ZIP-Bildarchiv
+- Email/password login (guest mode via `owner_token` + token backup)
+- Receipt forwarding email, QR reader, retailer app integrations
+- Leaflet PDF scrapers, DATEV/ZIP image archive
