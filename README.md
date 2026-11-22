@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/branding/fairbon-logo.jpg" alt="FairBon Logo" width="180">
+
 # 🛒 FairBon
 
 **Open-Source Household Budget & Price Comparison for German Supermarkets**  
@@ -8,6 +10,8 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Project Board](https://img.shields.io/badge/Project%20Board-GitHub%20Projects-6f42c1)](https://github.com/users/code-shed/projects/1)
 [![Status: Early Alpha](https://img.shields.io/badge/Status-Early%20Alpha-orange)]()
+
+<img src="assets/branding/fairbon-banner-light.jpg" alt="FairBon – Kassenbon-Tracker & Preisvergleich" width="100%">
 
 </div>
 
@@ -19,10 +23,10 @@ FairBon helps you **track purchases, compare prices, and save money** – **with
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| 🧾 **Receipt Import** (OCR / manual) | 🚧 *Planned* | Photo → structured line items (product, quantity, price, promo/regular) |
-| 📊 **Price History & Trends** | 🚧 *Planned* | How has the price of "Oat milk 1L" evolved over 6 months? |
+| 🧾 **Receipt Import** (photo / eBon / manual) | ✅ *MVP* | Photo → structured line items (product, quantity, price, promo/regular) |
+| 📊 **Price History & Trends** | ✅ *MVP* | How has the price of "Oat milk 1L" evolved over 6 months? |
 | 🏷 **Promos vs. Regular Prices** | 💡 *Concept* | Detect: "Is this a real deal or just the normal price?" |
-| 🛍 **Smart Basket** | 💡 *Concept* | "I need milk, oats, apples – where is the basket cheapest *today*?" |
+| 🛍 **Smart Basket** | ✅ *MVP* | "I need milk, oats, apples – where is the basket cheapest *today*?" |
 | 🔒 **100% local / offline-first** | ✅ *Design Principle* | No cloud, no tracking, no accounts – your data, your rules |
 | 🇩🇪 **Focus: DE Supermarkets** | ✅ *Scope* | REWE, EDEKA, Aldi, Lidl, Netto, Penny, Kaufland, dm, Rossmann, … |
 
@@ -33,7 +37,8 @@ FairBon helps you **track purchases, compare prices, and save money** – **with
 
 ## 🚀 Quickstart (Development)
 
-> ⚠️ **Early Alpha** – No runnable code yet. Structure is being set up.
+> **Early Alpha** – the receipt tracker, community prices and smart basket
+> already run locally. Photo scans need a vision key (or use the demo receipt).
 
 ```bash
 # 1. Clone repository
@@ -127,6 +132,15 @@ fairbon/
 ```
 
 ---
+
+## 🎨 Branding
+
+The FairBon logo, banners and app icons live in [`assets/branding/`](assets/branding/)
+(repository/README/social preview) and `frontend/assets/branding/` (served by
+the PWA). App icons and favicons are generated in `frontend/icons/`.
+
+- **No third-party supermarket logos** are used anywhere.
+- Products without a photo show our own SVG category icons.
 
 ## 📜 License & Copyright
 

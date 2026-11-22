@@ -350,6 +350,30 @@ def test_save_with_optin_shares_only_eligible_lines_without_owner(
     assert OWNER not in dumped
 
 
+def test_demo_receipt_learns_no_aliases(
+    client: TestClient, repository: Repository
+) -> None:
+    response = client.post(
+        f"{PREFIX}/receipts",
+        data={
+            "store": "Frischmarkt",
+            "postal_code": "65618",
+            "country_code": "DE",
+            "currency": "EUR",
+            "receipt_date": "2026-11-22",
+            "total_cents": 2138,
+            "share_anonymized": "false",
+            "is_demo": "true",
+            "items_json": _items_payload(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["shared_count"] == 0
+    aliases = repository.db.query("SELECT COUNT(*) AS n FROM receipt_aliases")
+    assert aliases[0]["n"] == 0
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ opts in, and never carry the ``owner_token`` or the ``receipt_id``.
 
 from __future__ import annotations
 
+import contextlib
 import re
 from typing import Annotated, Any
 
@@ -205,6 +206,140 @@ async def scan_receipt(
     return {**parsed.as_dict(), "engine": extraction.engine}
 
 
+@router.get("", summary="Eigene Kassenbons auflisten")
+async def list_receipts(
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+) -> list[dict[str, Any]]:
+    """Return all receipts of the anonymous owner (newest first)."""
+
+    owner_token = _owner_token(request)
+    receipts = repository.user_receipts_for(owner_token)
+    result: list[dict[str, Any]] = []
+    for receipt in receipts:
+        items = repository.user_receipt_items_for(int(receipt["id"]))
+        result.append(
+            {
+                **receipt,
+                "item_count": len(items),
+                "items": items,
+            }
+        )
+    return result
+
+
+@router.get("/stats", summary="Ausgaben-Statistik der eigenen Bons")
+async def receipt_stats(
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+    month: str = "",
+) -> dict[str, Any]:
+    """Monthly totals and category breakdown for the overview tab."""
+
+    owner_token = _owner_token(request)
+    receipts = repository.user_receipts_for(owner_token)
+
+    by_month: dict[str, int] = {}
+    categories: dict[str, int] = {}
+    shared_count = 0
+    selected_total = 0
+    selected_count = 0
+
+    for receipt in receipts:
+        receipt_month = str(receipt["receipt_date"] or "")[:7]
+        total = int(receipt["total_cents"] or 0)
+        by_month[receipt_month] = by_month.get(receipt_month, 0) + total
+        if int(receipt["shared_to_community"] or 0):
+            shared_count += 1
+        if month and receipt_month != month:
+            continue
+        selected_total += total
+        selected_count += 1
+        for item in repository.user_receipt_items_for(int(receipt["id"])):
+            if item["is_private"]:
+                continue
+            category = str(item["category"] or "Sonstiges")
+            categories[category] = categories.get(category, 0) + int(
+                item["price_cents"] or 0
+            )
+
+    months = sorted(by_month, reverse=True)
+    average = round(selected_total / selected_count) if selected_count else 0
+
+    return {
+        "month": month or (months[0] if months else ""),
+        "total_cents": selected_total,
+        "receipt_count": selected_count,
+        "average_cents": average,
+        "shared_count": shared_count,
+        "by_month": [
+            {"month": m, "total_cents": by_month[m]} for m in months
+        ],
+        "categories": sorted(
+            (
+                {"category": category, "total_cents": value}
+                for category, value in categories.items()
+            ),
+            key=lambda entry: entry["total_cents"],
+            reverse=True,
+        ),
+    }
+
+
+@router.get("/{receipt_id}", summary="Einen eigenen Kassenbon im Detail")
+async def get_receipt(
+    receipt_id: int,
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+) -> dict[str, Any]:
+    owner_token = _owner_token(request)
+    receipt = repository.user_receipt(receipt_id=receipt_id, owner_token=owner_token)
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
+    return {
+        **receipt,
+        "items": repository.user_receipt_items_for(receipt_id),
+    }
+
+
+@router.delete("/{receipt_id}", summary="Eigenen Kassenbon löschen")
+async def delete_receipt(
+    receipt_id: int,
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+) -> dict[str, bool]:
+    owner_token = _owner_token(request)
+    deleted = repository.delete_user_receipt(
+        receipt_id=receipt_id, owner_token=owner_token
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
+    return {"deleted": True}
+
+
+@router.patch(
+    "/{receipt_id}/items/{item_id}",
+    summary="Privat-Markierung einer Bon-Zeile setzen",
+)
+async def set_item_private(
+    receipt_id: int,
+    item_id: int,
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+    is_private: Annotated[bool, Form()] = True,
+) -> dict[str, bool]:
+    owner_token = _owner_token(request)
+    updated = repository.set_receipt_item_private(
+        item_id=item_id,
+        receipt_id=receipt_id,
+        owner_token=owner_token,
+        is_private=is_private,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Position nicht gefunden.")
+    return {"is_private": is_private}
+
+
 @router.post("", summary="Kassenbon speichern (privat + optional Community)")
 async def save_receipt(
     request: Request,
@@ -216,6 +351,7 @@ async def save_receipt(
     receipt_date: Annotated[str, Form()] = "",
     total_cents: Annotated[int, Form()] = 0,
     share_anonymized: Annotated[bool, Form()] = False,
+    is_demo: Annotated[bool, Form()] = False,
     items_json: Annotated[str, Form()] = "[]",
 ) -> dict[str, Any]:
     """Create a personal receipt.
@@ -255,6 +391,26 @@ async def save_receipt(
         shared_to_community=bool(share_anonymized),
         items=items,
     )
+
+    # Self-learning aliases: remember how the market abbreviated each line.
+    # Demo receipts are synthetic and must not pollute the alias table.
+    from ...normalization.matcher import normalize_title
+
+    for item in ([] if is_demo else items):
+        raw_text = str(item.get("raw_text") or "").strip()
+        normalized = str(item.get("normalized_name") or "").strip()
+        if not raw_text or not normalized:
+            continue
+        with contextlib.suppress(Exception):  # alias learning must never fail a save
+            repository.upsert_alias(
+                store=clean_store,
+                raw_text_norm=normalize_title(raw_text),
+                normalized_name=normalized,
+                brand=item.get("brand"),
+                category=item.get("category"),
+                quantity=item.get("quantity"),
+                unit=item.get("unit"),
+            )
 
     # Community opt-in: share only eligible lines, without any owner data.
     shared_count = 0

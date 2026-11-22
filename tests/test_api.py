@@ -155,7 +155,7 @@ def test_root_endpoint_serves_the_web_ui(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "Supermarkt-Preisvergleich" in response.text
+    assert "FairBon" in response.text
 
 
 def test_swagger_and_redoc_are_available(client: TestClient) -> None:
@@ -179,6 +179,9 @@ def test_openapi_schema_lists_all_endpoints(client: TestClient) -> None:
         "/api/v1/receipts",
         "/api/v1/receipts/scan",
         "/api/v1/receipts/export",
+        "/api/v1/receipts/stats",
+        "/api/v1/receipts/{receipt_id}",
+        "/api/v1/receipts/{receipt_id}/items/{item_id}",
         "/api/v1/admin/database/schema",
         "/api/v1/products/search",
         "/api/v1/products/search/ranked",

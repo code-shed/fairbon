@@ -467,6 +467,38 @@ class Repository:
         )
         return [dict(row) for row in rows]
 
+    def user_receipt(
+        self, *, receipt_id: int, owner_token: str
+    ) -> dict[str, Any] | None:
+        row = self.db.query_one(
+            "SELECT * FROM user_receipts WHERE id = ? AND owner_token = ?",
+            (int(receipt_id), owner_token),
+        )
+        return dict(row) if row else None
+
+    def delete_user_receipt(self, *, receipt_id: int, owner_token: str) -> bool:
+        cursor = self.db.execute(
+            "DELETE FROM user_receipts WHERE id = ? AND owner_token = ?",
+            (int(receipt_id), owner_token),
+        )
+        return bool(cursor.rowcount)
+
+    def set_receipt_item_private(
+        self, *, item_id: int, receipt_id: int, owner_token: str, is_private: bool
+    ) -> bool:
+        cursor = self.db.execute(
+            """
+            UPDATE user_receipt_items
+               SET is_private = ?
+             WHERE id = ? AND receipt_id = ?
+               AND receipt_id IN (
+                   SELECT id FROM user_receipts WHERE owner_token = ?
+               )
+            """,
+            (1 if is_private else 0, int(item_id), int(receipt_id), owner_token),
+        )
+        return bool(cursor.rowcount)
+
     def user_receipt_items_for(self, receipt_id: int) -> list[dict[str, Any]]:
         rows = self.db.query(
             """
@@ -540,6 +572,15 @@ class Repository:
 
     async def auser_receipt_items_for(self, receipt_id: int) -> list[dict[str, Any]]:
         return await asyncio.to_thread(self.user_receipt_items_for, receipt_id)
+
+    async def auser_receipt(self, **kwargs: Any) -> dict[str, Any] | None:
+        return await asyncio.to_thread(self.user_receipt, **kwargs)
+
+    async def adelete_user_receipt(self, **kwargs: Any) -> bool:
+        return await asyncio.to_thread(self.delete_user_receipt, **kwargs)
+
+    async def aset_receipt_item_private(self, **kwargs: Any) -> bool:
+        return await asyncio.to_thread(self.set_receipt_item_private, **kwargs)
 
     async def aresolve_alias(self, **kwargs: Any) -> dict[str, Any] | None:
         return await asyncio.to_thread(self.resolve_alias, **kwargs)

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0f6b46" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1110" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FairBon">
+<!--SEO-ROBOTS-->
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FairBon">
+<meta property="og:title" content="FairBon · Kassenbons &amp; Preisvergleich">
+<meta property="og:description" content="Kassenbons erfassen, Ausgaben auswerten und anonym Preise vergleichen. Open Source, lokal, ohne Datenverkauf.">
+<meta property="og:image" content="./assets/branding/fairbon-banner-light.jpg">
+<meta property="og:image:alt" content="FairBon – Kassenbon-Tracker &amp; Preisvergleich">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FairBon · Kassenbons &amp; Preisvergleich">
+<meta name="twitter:description" content="Kassenbons erfassen, Ausgaben auswerten und anonym Preise vergleichen.">
+<meta name="twitter:image" content="./assets/branding/fairbon-banner-light.jpg">
+<title>FairBon · Kassenbons &amp; Preisvergleich</title>
+<link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+<svg class="icon-sprite" aria-hidden="true" focusable="false" width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="icon-basket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 8h18l-1.6 9.4a2 2 0 0 1-2 1.6H6.6a2 2 0 0 1-2-1.6L3 8Z"/>
+      <path d="M8.5 8a3.5 3.5 0 0 1 7 0"/>
+    </symbol>
+    <symbol id="icon-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="3" width="6" height="11" rx="3"/>
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
+    </symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="11" height="11" rx="2"/>
+      <path d="M15 5H6a2 2 0 0 0-2 2v9"/>
+    </symbol>
+    <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+      <path d="M12 16V3M8 7l4-4 4 4"/>
+    </symbol>
+    <symbol id="icon-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/>
+      <path d="M9 8h6M9 12h6"/>
+    </symbol>
+    <symbol id="icon-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 4c0 9-5 14-12 14H4c0-9 5-14 12-14h4Z"/>
+      <path d="M4 20c4-6 8-9 12-11"/>
+    </symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 11 12 4l8 7v9H4v-9Z"/>
+      <path d="M9 20v-6h6v6"/>
+    </symbol>
+    <symbol id="cat-dairy" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8h12v6l5 7v19H13V21l5-7V8Z"/>
+      <path d="M13 28h22"/>
+    </symbol>
+    <symbol id="cat-meat" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M30 12a10 10 0 0 1 6 17l-9 9-8-8 9-9a10 10 0 0 1 2-9Z"/>
+      <path d="M19 30 10 39M12 34l4 4"/>
+    </symbol>
+    <symbol id="cat-produce" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M24 18c8 0 12 6 12 13 0 6-5 9-12 9s-12-3-12-9c0-7 4-13 12-13Z"/>
+      <path d="M24 18c0-5 3-8 8-8 0 5-3 8-8 8ZM20 18c-1-4-4-6-8-6 1 4 4 6 8 6Z"/>
+    </symbol>
+    <symbol id="cat-drinks" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 6h10v6l4 5v25H15V17l4-5V6Z"/>
+      <path d="M15 24h18M15 34h18"/>
+    </symbol>
+    <symbol id="cat-bakery" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 28c0-9 7-15 16-15s16 6 16 15v8H8v-8Z"/>
+      <path d="M16 20c1 4 1 8 0 12M24 18c1 4 1 9 0 14M32 20c-1 4-1 8 0 12"/>
+    </symbol>
+    <symbol id="cat-pantry" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 16h28v24H10V16Z"/>
+      <path d="M10 24h28M20 16v8M28 16v8"/>
+    </symbol>
+    <symbol id="cat-sweets" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="24" cy="24" r="9"/>
+      <path d="m15 18-7-4v20l7-4M33 18l7-4v20l-7-4"/>
+    </symbol>
+    <symbol id="cat-drugstore" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 15h12v25H18V15Z"/>
+      <path d="M21 15V9h6v6M24 9V5h9"/>
+      <path d="M18 25h12"/>
+    </symbol>
+    <symbol id="cat-generic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 17h28l-3 20a3 3 0 0 1-3 2.5H16A3 3 0 0 1 13 37L10 17Z"/>
+      <path d="M18 17a6 6 0 0 1 12 0"/>
+    </symbol>
+    <symbol id="icon-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="9" r="5"/>
+      <path d="M8.5 13.5 7 21l5-2.5L17 21l-1.5-7.5"/>
+    </symbol>
+  </defs>
+</svg>
+
+<a class="skip-link" href="#main">Zum Inhalt springen</a>
+
+<header class="site app-header">
+  <div class="wrap header-row">
+    <div class="brand">
+      <h1>FairBon</h1>
+      <p class="sub">Kassenbons, Ausgaben &amp; Preise</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="pill" id="plz-pill" aria-label="Postleitzahl ändern">PLZ 65618</button>
+      <button type="button" class="icon-btn" id="settings-open" aria-label="Einstellungen">⚙</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap app-main" id="main">
+
+  <!-- Tab 1: Übersicht -->
+  <section class="tab-panel" id="tab-overview" data-tab="overview">
+    <div class="month-nav">
+      <button type="button" class="icon-btn" id="month-prev" aria-label="Vorheriger Monat">‹</button>
+      <strong id="month-label">November 2026</strong>
+      <button type="button" class="icon-btn" id="month-next" aria-label="Nächster Monat">›</button>
+    </div>
+
+    <section class="spend-card card" aria-labelledby="spend-heading">
+      <h2 id="spend-heading" class="sr-only">Monatsausgaben</h2>
+      <div class="donut-wrap">
+        <svg id="spend-donut" class="donut" viewBox="0 0 160 160" role="img" aria-labelledby="donut-title donut-desc">
+          <title id="donut-title">Ausgaben im Monat</title>
+          <desc id="donut-desc">Ringdiagramm der Monatsausgaben</desc>
+        </svg>
+        <div class="donut-center">
+          <span class="donut-total" id="overview-total">0&nbsp;€</span>
+          <span class="donut-sub" id="overview-budget-hint">Ausgaben</span>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="stat-label">Ø / Monat</span><strong id="overview-average">0&nbsp;€</strong></div>
+        <div class="stat"><span class="stat-label">Bons</span><strong id="overview-count">0</strong></div>
+        <div class="stat"><span class="stat-label">Geteilt</span><strong id="overview-shared">0</strong></div>
+      </div>
+    </section>
+
+    <section class="card categories-card" aria-labelledby="categories-heading">
+      <h2 id="categories-heading">Kategorien</h2>
+      <div class="category-bars" id="category-bars"></div>
+      <p class="empty-hint" id="categories-empty">Noch keine Ausgaben in diesem Monat.</p>
+    </section>
+
+    <section class="card demo-card" id="demo-card" hidden>
+      <h2>Noch keine Bons?</h2>
+      <p class="detail-note">Teste FairBon mit einem realistischen Beispiel-Bon – ohne Kamera, ohne API-Kosten.</p>
+      <button type="button" class="secondary" id="demo-receipt-cta">Nur zum Testen? Beispiel-Bon ausprobieren</button>
+    </section>
+
+    <button type="button" class="primary add-cta" id="add-receipt-cta">+ Bon erfassen</button>
+  </section>
+
+  <!-- Tab 2: Bons -->
+  <section class="tab-panel" id="tab-receipts" data-tab="receipts" hidden>
+    <div class="receipts-toolbar">
+      <input type="search" id="receipts-search" placeholder="Händler oder Artikel suchen" autocomplete="off">
+      <a class="secondary btn-link" id="export-xlsx" href="#">Export .xlsx</a>
+      <a class="secondary btn-link" id="export-csv" href="#">CSV</a>
+    </div>
+    <div class="chips" id="receipt-filters" aria-live="polite">
+      <button type="button" class="chip" data-filter="all" aria-pressed="true">Alle</button>
+      <button type="button" class="chip" data-filter="business" aria-pressed="false">Nur Geschäftlich</button>
+      <button type="button" class="chip" data-filter="shared" aria-pressed="false">Geteilt</button>
+    </div>
+    <div id="receipt-list" class="receipt-list"></div>
+    <p class="empty-hint" id="receipts-empty">Noch keine Bons. Tippe auf „+ Bon erfassen“.</p>
+  </section>
+
+  <!-- Tab 3: Preise -->
+  <section class="tab-panel" id="tab-prices" data-tab="prices" hidden>
+    <form class="search card card--raised" id="search-form" novalidate>
+      <div class="field">
+        <label for="query">Suchbegriff</label>
+        <div class="input-row">
+          <input id="query" name="query" type="search" placeholder="z. B. Butter, Bier, Milch" autocomplete="off" spellcheck="false" required>
+          <button type="button" class="mic mic-inline" id="mic-search" aria-label="Spracheingabe für den Suchbegriff">
+            <svg class="icon" aria-hidden="true"><use href="#icon-mic"></use></svg>
+          </button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="postal-code">Postleitzahl</label>
+        <input id="postal-code" name="postal_code" type="text" inputmode="numeric" value="65618" pattern="[0-9]{4,5}" maxlength="5" autocomplete="postal-code" required>
+        <p class="coverage" id="coverage" aria-live="polite"></p>
+      </div>
+      <fieldset class="stores">
+        <legend class="legend">Märkte</legend>
+        <div class="store-grid" id="store-grid"></div>
+      </fieldset>
+      <div class="toggles">
+        <label class="switch" for="precise"><input type="checkbox" id="precise" checked><span>Genauere Suche</span></label>
+        <label class="switch" for="today-only"><input type="checkbox" id="today-only"><span>Nur heute gültige Angebote</span></label>
+        <label class="switch" for="standard"><input type="checkbox" id="standard"><span>Gesamtes Sortiment inkl. Standardpreise</span></label>
+      </div>
+      <div class="actions">
+        <div class="field limit">
+          <label for="limit">Treffer</label>
+          <select id="limit" name="limit">
+            <option value="10">10 Angebote</option>
+            <option value="20" selected>20 Angebote</option>
+            <option value="50">50 Angebote</option>
+            <option value="100">100 Angebote</option>
+          </select>
+        </div>
+        <button class="primary" type="submit" id="submit">Suchen</button>
+      </div>
+    </form>
+    <div class="chips" id="chips" aria-live="polite"></div>
+    <div class="toolbar">
+      <p class="summary" id="summary" aria-live="polite"></p>
+      <div class="sortgroup" role="group" aria-label="Sortierung">
+        <button type="button" data-sort="price" aria-pressed="false">Preis</button>
+        <button type="button" data-sort="unit" aria-pressed="true">Grundpreis</button>
+        <button type="button" data-sort="discount" aria-pressed="false">Rabatt</button>
+      </div>
+    </div>
+    <div id="state">Suchbegriff eingeben und <strong>Suchen</strong> – zum Beispiel Butter, Bier oder Milch.</div>
+    <div id="results" class="result-groups"></div>
+    <section id="optimize" class="optimize" aria-live="polite" hidden></section>
+  </section>
+
+  <!-- Tab 4: Liste -->
+  <section class="tab-panel" id="tab-list" data-tab="list" hidden>
+    <section class="shopping-card card" aria-labelledby="shopping-heading">
+      <label class="legend" id="shopping-heading" for="shopping-list">Einkaufszettel</label>
+      <div class="shopping-row">
+        <textarea id="shopping-list" rows="3" placeholder="Butter Nutella Milch – Kommas sind optional"></textarea>
+        <button type="button" class="mic" id="mic" aria-label="Spracheingabe starten">
+          <svg class="icon" aria-hidden="true"><use href="#icon-mic"></use></svg>
+        </button>
+      </div>
+      <div class="shopping-actions">
+        <button type="button" class="secondary" id="apply-list">Einkaufszettel übernehmen</button>
+        <button type="button" class="secondary" id="search-all">Alle Begriffe suchen</button>
+      </div>
+      <div class="chips list-chips" id="list-chips" aria-live="polite"></div>
+    </section>
+
+    <section class="card basket-card" aria-labelledby="basket-heading">
+      <div class="basket-head">
+        <h2 id="basket-heading">Merkliste (<span id="basket-count">0</span>)</h2>
+        <button type="button" class="secondary" id="basket-clear">Leeren</button>
+      </div>
+      <div id="basket-items" class="basket-items"></div>
+      <button type="button" class="primary" id="basket-optimize">Günstigste Aufteilung berechnen</button>
+      <div class="share-row">
+        <button type="button" class="secondary" id="share-whatsapp">WhatsApp</button>
+        <button type="button" class="secondary" id="share-copy">Kopieren</button>
+      </div>
+    </section>
+  </section>
+</main>
+
+<button type="button" class="fab" id="add-receipt-fab" aria-label="Kassenbon erfassen">+ Bon</button>
+
+<nav class="tabbar" aria-label="Hauptnavigation">
+  <button type="button" class="tab-btn" data-tab="overview" aria-current="page">
+    <svg class="icon" aria-hidden="true"><use href="#icon-home"></use></svg><span>Übersicht</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="receipts">
+    <svg class="icon" aria-hidden="true"><use href="#icon-receipt"></use></svg><span>Bons</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="prices">
+    <svg class="icon" aria-hidden="true"><use href="#icon-leaf"></use></svg><span>Preise</span>
+  </button>
+  <button type="button" class="tab-btn" data-tab="list">
+    <svg class="icon" aria-hidden="true"><use href="#icon-basket"></use></svg><span>Liste <span class="tab-badge" id="list-badge" hidden>0</span></span>
+  </button>
+</nav>
+
+<!-- Preisverlaufs-Modal -->
+<div class="modal-backdrop" id="detail-backdrop" hidden></div>
+<div class="modal modal--detail" id="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+  <div class="modal-head">
+    <div>
+      <h2 id="detail-title">Preisverlauf</h2>
+      <p class="detail-sub" id="detail-sub"></p>
+    </div>
+    <button type="button" class="drawer-close" id="detail-close" aria-label="Schließen">×</button>
+  </div>
+  <div class="modal-body">
+    <div class="detail-identity-tabs" role="tablist" aria-label="Vergleichsumfang">
+      <button type="button" role="tab" data-identity="strict" aria-selected="true">Dieses Gebinde</button>
+      <button type="button" role="tab" data-identity="all" aria-selected="false">Alle Sorten</button>
+    </div>
+    <div class="range-tabs" role="tablist" aria-label="Zeitraum">
+      <button type="button" role="tab" data-days="28" aria-selected="false">4 Wochen</button>
+      <button type="button" role="tab" data-days="90" aria-selected="false">3 Monate</button>
+      <button type="button" role="tab" data-days="180" aria-selected="false">6 Monate</button>
+      <button type="button" role="tab" data-days="365" aria-selected="true">1 Jahr</button>
+      <button type="button" role="tab" data-days="0" aria-selected="false">Max</button>
+    </div>
+    <div class="verdict" id="detail-verdict" hidden></div>
+    <div class="metric-grid" id="detail-metrics"></div>
+    <section class="detail-stores" id="detail-stores" hidden>
+      <h3>Aktuell im Vergleich (alle Läden)</h3>
+      <ul class="detail-stores-list" id="detail-stores-list"></ul>
+    </section>
+    <figure class="chart-figure">
+      <svg id="detail-chart" class="chart" viewBox="0 0 640 240" role="img" aria-labelledby="detail-chart-title detail-chart-desc">
+        <title id="detail-chart-title">Preisverlauf</title>
+        <desc id="detail-chart-desc">Preis pro Woche für dieses Produkt.</desc>
+      </svg>
+      <figcaption class="chart-legend" id="detail-legend"></figcaption>
+    </figure>
+    <p class="detail-note" id="detail-note"></p>
+    <p class="form-error" id="detail-error" hidden></p>
+  </div>
+</div>
+
+<!-- Bon-Detail-Sheet -->
+<div class="modal-backdrop" id="receipt-backdrop" hidden></div>
+<div class="modal modal--sheet" id="receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-title" hidden>
+  <div class="modal-head">
+    <div>
+      <h2 id="receipt-title">Bon</h2>
+      <p class="detail-sub" id="receipt-sub"></p>
+    </div>
+    <button type="button" class="drawer-close" id="receipt-close" aria-label="Schließen">×</button>
+  </div>
+  <div class="modal-body">
+    <ul class="receipt-items" id="receipt-items"></ul>
+    <p class="form-error" id="receipt-error" hidden></p>
+    <button type="button" class="danger" id="receipt-delete">Bon löschen</button>
+  </div>
+</div>
+
+<!-- Bon erfassen (Bottom-Sheet) -->
+<div class="modal-backdrop" id="add-backdrop" hidden></div>
+<div class="modal modal--sheet" id="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-title" hidden>
+  <div class="modal-head">
+    <div>
+      <h2 id="add-title">Bon erfassen</h2>
+      <p class="detail-sub">Foto, PDF/eBon-Text oder manuell</p>
+    </div>
+    <button type="button" class="drawer-close" id="add-close" aria-label="Schließen">×</button>
+  </div>
+  <div class="modal-body">
+    <div class="add-tiles">
+      <button type="button" class="tile" id="add-photo">
+        <svg class="icon" aria-hidden="true"><use href="#icon-receipt"></use></svg>
+        <strong>Foto / Kamera</strong><span>Kassenbon abfotografieren</span>
+      </button>
+      <button type="button" class="tile" id="add-ebon">
+        <svg class="icon" aria-hidden="true"><use href="#icon-share"></use></svg>
+        <strong>PDF / eBon-Text</strong><span>Digitaler Bon, 0 €</span>
+      </button>
+      <button type="button" class="tile" id="add-manual">
+        <svg class="icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
+        <strong>Manuell</strong><span>Schnelle Eingabe</span>
+      </button>
+    </div>
+    <button type="button" class="secondary demo-btn" id="demo-receipt-add">Nur zum Testen? Beispiel-Bon ausprobieren</button>
+    <input type="file" id="add-file" accept="image/*" capture="environment" hidden>
+    <input type="file" id="add-pdf" accept="application/pdf,text/plain" hidden>
+
+    <section class="scan-progress" id="scan-progress" hidden>
+      <span class="demo-badge" id="demo-badge" hidden>Beispiel-Bon</span>
+      <div class="demo-receipt" id="demo-receipt-card" hidden></div>
+      <div id="scan-checklist"></div>
+    </section>
+    <label class="switch" for="share-optin">
+      <input type="checkbox" id="share-optin" checked>
+      <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
+    </label>
+    <p class="demo-note" id="demo-note" hidden>Beispiel-Bon wird nicht mit der Community geteilt.</p>
+    <p class="form-error" id="add-error" hidden></p>
+    <div id="add-preview" hidden>
+      <div class="demo-banner" id="demo-banner" hidden>
+        <strong>Beispiel-Bon</strong>
+        <span>Tippe auf eine Zeile, um Name, Preis, Kategorie, MwSt. oder „Privat“ anzupassen.</span>
+        <button type="button" class="mini-btn" id="demo-banner-close" aria-label="Hinweis schließen">×</button>
+      </div>
+      <h3>Erkannte Positionen</h3>
+      <ul class="receipt-items" id="add-items"></ul>
+      <div class="add-summary" id="add-summary" hidden></div>
+      <button type="button" class="primary" id="add-save">Bon speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div class="modal-backdrop" id="settings-backdrop" hidden></div>
+<div class="modal modal--sheet" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+  <div class="modal-head">
+    <h2 id="settings-title">Einstellungen</h2>
+    <button type="button" class="drawer-close" id="settings-close" aria-label="Schließen">×</button>
+  </div>
+  <div class="modal-body settings-body">
+    <label class="field">Postleitzahl
+      <input type="text" id="settings-plz" inputmode="numeric" maxlength="5" pattern="[0-9]{4,5}">
+    </label>
+    <label class="field">Land
+      <select id="settings-country"><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="CH">Schweiz</option></select>
+    </label>
+    <label class="field">Monatsbudget (optional, €)
+      <input type="number" id="settings-budget" min="0" step="1" placeholder="z. B. 250">
+    </label>
+    <label class="field">Eigener Vision-API-Key (BYOK, optional)
+      <input type="password" id="settings-byok" autocomplete="off" placeholder="überspringt Scan-Limits">
+    </label>
+    <div class="settings-actions">
+      <a class="secondary btn-link" href="/admin" target="_blank" rel="noopener">Admin</a>
+      <button type="button" class="secondary" id="settings-reset">Gast-Token neu erzeugen</button>
+    </div>
+    <p class="detail-note">100 % Open Source · Community-Kassenbons (anonymisiert) · Alle Angaben ohne Gewähr · Kein Datenverkauf</p>
+  </div>
+</div>
+
+<script src="./js/state.js"></script>
+<script src="./js/api.js"></script>
+<script src="./js/platform.js"></script>
+<script src="./js/views/prices.js"></script>
+<script src="./js/views/list.js"></script>
+<script src="./js/views/overview.js"></script>
+<script src="./js/views/receipts.js"></script>
+<script src="./js/demo-receipt.js"></script>
+<script src="./js/components/scan-progress.js"></script>
+<script src="./js/components/add-sheet.js"></script>
+<script src="./js/app.js"></script>
+</body>
+</html>

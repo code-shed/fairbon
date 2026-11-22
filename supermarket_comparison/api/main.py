@@ -16,12 +16,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import (
+    FileResponse,
     HTMLResponse,
     JSONResponse,
     PlainTextResponse,
     RedirectResponse,
     Response,
 )
+from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings
 from ..services.aggregator import Aggregator
@@ -184,6 +186,34 @@ def load_admin_html() -> str:
 
 
 @lru_cache(maxsize=1)
+def _frontend_dir() -> Path:
+    """Resolve the static frontend directory (repo root or packaged)."""
+
+    import os
+
+    override = os.getenv("SUPERMARKET_FRONTEND_DIR")
+    if override:
+        candidate = Path(override)
+        if candidate.is_dir():
+            return candidate
+    # main.py -> api -> supermarket_comparison -> repo root
+    candidate = Path(__file__).resolve().parents[2] / "frontend"
+    if candidate.is_dir():
+        return candidate
+    packaged = Path(__file__).resolve().parent / "frontend"
+    return packaged
+
+
+def load_frontend_shell() -> str:
+    """Return the modular frontend shell (``frontend/index.html``)."""
+
+    path = _frontend_dir() / "index.html"
+    if path.is_file():
+        return path.read_text(encoding="utf-8")
+    # Fallback: the legacy single-file template.
+    return load_index_html()
+
+
 def load_index_html() -> str:
     """Return the single-page search UI (``api/templates/index.html``).
 
@@ -256,10 +286,41 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
     app.include_router(basket.router, prefix=prefix)
     app.include_router(history.router, prefix=prefix)
     app.include_router(crowd.router, prefix=prefix)
-    app.include_router(receipts_router.router, prefix=prefix)
+    # Export before the parameterised receipt routes so /receipts/export
+    # is not captured as receipt_id="export".
     app.include_router(export_router.router, prefix=prefix)
+    app.include_router(receipts_router.router, prefix=prefix)
     app.include_router(system.router, prefix=prefix)
     app.include_router(admin_db.router, prefix=prefix)
+
+    # --- static frontend (PWA + Capacitor webDir) -----------------------
+    frontend = _frontend_dir()
+    for name in ("css", "js", "icons", "assets"):
+        directory = frontend / name
+        if directory.is_dir():
+            app.mount(
+                f"/{name}", StaticFiles(directory=str(directory)), name=f"static-{name}"
+            )
+
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    async def manifest() -> Response:
+        path = frontend / "manifest.webmanifest"
+        if not path.is_file():
+            return PlainTextResponse("not found", status_code=404)
+        return FileResponse(
+            path, media_type="application/manifest+json"
+        )
+
+    @app.get("/sw.js", include_in_schema=False)
+    async def service_worker() -> Response:
+        path = frontend / "sw.js"
+        if not path.is_file():
+            return PlainTextResponse("not found", status_code=404)
+        return FileResponse(
+            path,
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+        )
 
     app.state.aggregator = aggregator
 
@@ -411,17 +472,22 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
 
     @app.get("/", tags=["system"], include_in_schema=False)
     async def root() -> HTMLResponse:
-        """Serve the German-language search UI."""
+        """Serve the FairBon app shell."""
 
-        html = load_index_html()
+        html = load_frontend_shell()
         current = get_settings()
         meta = (
             '<meta name="robots" content="noindex, nofollow">'
             if current.stealth_mode
             else ""
         )
+        content = (
+            html.replace("<!--SEO-ROBOTS-->", meta)
+            if "<!--SEO-ROBOTS-->" in html
+            else html
+        )
         return HTMLResponse(
-            content=html.replace("<!--SEO-ROBOTS-->", meta),
+            content=content,
             headers={"Cache-Control": "no-cache"},
         )
 
