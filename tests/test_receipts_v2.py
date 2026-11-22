@@ -620,6 +620,7 @@ def test_export_xlsx_two_sheets_with_real_numbers(
     header = [cell.value for cell in ws[1]]
     assert header[0] == "Belegdatum"
     assert "Brutto" in header and "Netto" in header
+    assert "Pfand" in header
     # Rows are numeric, not text.
     assert isinstance(ws.cell(2, 8).value, (int, float))  # Netto
     assert isinstance(ws.cell(2, 10).value, (int, float))  # Brutto
@@ -632,6 +633,74 @@ def test_export_xlsx_two_sheets_with_real_numbers(
         if cell is not None
     ]
     assert 7.0 in values and 19.0 in values
+
+
+def test_export_reconciles_with_deposits(
+    client: TestClient, repository: Repository
+) -> None:
+    repository.insert_user_receipt(
+        owner_token=OWNER,
+        store="REWE",
+        postal_code="65618",
+        country_code="DE",
+        currency="EUR",
+        receipt_date="2026-11-21",
+        total_cents=248,
+        shared_to_community=False,
+        items=[
+            {
+                "raw_text": "Mineralwasser 1,5L",
+                "normalized_name": "Mineralwasser 1,5L",
+                "brand": "Gerolsteiner",
+                "category": "Getränke",
+                "quantity": 1.5,
+                "unit": "l",
+                "price_cents": 198,
+                "discount_cents": 0,
+                "deposit_cents": 50,
+                "vat_rate": 19.0,
+                "is_private": False,
+            }
+        ],
+    )
+
+    import io
+
+    from openpyxl import load_workbook
+
+    response = client.get(f"{PREFIX}/receipts/export?format=xlsx")
+    wb = load_workbook(io.BytesIO(response.content))
+    ws = wb["Rohdaten"]
+    header = [cell.value for cell in ws[1]]
+    assert header == [
+        "Belegdatum",
+        "Beleg-ID",
+        "Händler",
+        "Artikel",
+        "Kategorie",
+        "Privat/Geschäftlich",
+        "MwSt-Satz (%)",
+        "Netto",
+        "Steuerbetrag",
+        "Brutto",
+        "Pfand",
+        "Währung",
+    ]
+    assert ws.cell(2, 11).value == 0.5  # Pfand as a real number
+    assert ws.cell(2, 10).value == 1.98  # Brutto (product only)
+
+    ws2 = wb["Steuer-Zusammenfassung"]
+    total_row = None
+    for row in ws2.iter_rows(values_only=True):
+        if row and row[0] == "GESAMT":
+            total_row = row
+    assert total_row is not None
+    assert total_row[3] == 1.98  # Brutto
+    assert total_row[4] == 0.5   # Pfand
+    assert round(total_row[3] + total_row[4], 2) == 2.48
+
+    csv = client.get(f"{PREFIX}/receipts/export?format=csv").text
+    assert "Pfand" in csv.splitlines()[0]
 
 
 def test_export_csv_and_exclude_private(

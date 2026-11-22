@@ -13,6 +13,11 @@ Parameters
 * ``format=xlsx|csv``
 * ``exclude_private=true`` filters out lines marked as private
   (useful for business-only exports).
+
+Deposits (Pfand) are exported as their own column and summary column; they
+are not part of the taxable base, so ``Netto``/``Steuer`` stay based on the
+product price while ``Brutto`` and ``Pfand`` together reconcile with the
+receipt total.
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ ROHDATA_COLUMNS: list[str] = [
     "Netto",
     "Steuerbetrag",
     "Brutto",
+    "Pfand",
     "Währung",
 ]
 
@@ -76,6 +82,7 @@ def _receipts_with_items(
                     "netto": netto_cents / 100.0,
                     "tax": tax_cents / 100.0,
                     "brutto": brutto_cents / 100.0,
+                    "deposit": int(item["deposit_cents"] or 0) / 100.0,
                     "currency": receipt["currency"],
                 }
             )
@@ -115,7 +122,8 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
         ws.cell(row=r, column=8, value=round(row["netto"], 2))
         ws.cell(row=r, column=9, value=round(row["tax"], 2))
         ws.cell(row=r, column=10, value=round(row["brutto"], 2))
-        ws.cell(row=r, column=11, value=row["currency"])
+        ws.cell(row=r, column=11, value=round(row["deposit"], 2))
+        ws.cell(row=r, column=12, value=row["currency"])
 
     for col in range(1, len(ROHDATA_COLUMNS) + 1):
         ws.column_dimensions[get_column_letter(col)].width = 16
@@ -127,7 +135,8 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
     ws2.cell(row=1, column=2, value="Netto")
     ws2.cell(row=1, column=3, value="Steuer")
     ws2.cell(row=1, column=4, value="Brutto")
-    for col in range(1, 5):
+    ws2.cell(row=1, column=5, value="Pfand")
+    for col in range(1, 6):
         cell = ws2.cell(row=1, column=col)
         cell.font = header_font
         cell.fill = header_fill
@@ -147,6 +156,7 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
                 (2, round(sum(x["netto"] for x in filtered), 2)),
                 (3, round(sum(x["tax"] for x in filtered), 2)),
                 (4, round(sum(x["brutto"] for x in filtered), 2)),
+                (5, round(sum(x["deposit"] for x in filtered), 2)),
             ],
             row_i,
         )
@@ -157,6 +167,7 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
     ws2.cell(row=row_i, column=2, value="Netto").font = header_font
     ws2.cell(row=row_i, column=3, value="Steuer").font = header_font
     ws2.cell(row=row_i, column=4, value="Brutto").font = header_font
+    ws2.cell(row=row_i, column=5, value="Pfand").font = header_font
     row_i += 1
     categories: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -168,6 +179,7 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
                 (2, round(sum(x["netto"] for x in cat_rows), 2)),
                 (3, round(sum(x["tax"] for x in cat_rows), 2)),
                 (4, round(sum(x["brutto"] for x in cat_rows), 2)),
+                (5, round(sum(x["deposit"] for x in cat_rows), 2)),
             ],
             row_i,
         )
@@ -176,13 +188,13 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
     row_i += 1
     total_i = row_i
     ws2.cell(row=total_i, column=1, value="GESAMT").font = Font(bold=True)
-    for col, key in ((2, "netto"), (3, "tax"), (4, "brutto")):
+    for col, key in ((2, "netto"), (3, "tax"), (4, "brutto"), (5, "deposit")):
         cell = ws2.cell(
             row=total_i, column=col, value=round(sum(x[key] for x in rows), 2)
         )
         cell.font = Font(bold=True)
 
-    for col in range(1, 5):
+    for col in range(1, 6):
         ws2.column_dimensions[get_column_letter(col)].width = 16
 
     buffer = io.BytesIO()
@@ -209,6 +221,7 @@ def _csv_text(rows: list[dict[str, Any]], *, exclude_private: bool) -> str:
                 _fmt(row["netto"]),
                 _fmt(row["tax"]),
                 _fmt(row["brutto"]),
+                _fmt(row["deposit"]),
                 row["currency"],
             ]
         )

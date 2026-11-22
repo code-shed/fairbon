@@ -522,7 +522,7 @@ async def extract_with_vision(
     # Provider errors may contain request URLs; log them server-side only.
     import logging
 
-    logging.getLogger(__name__).warning("All vision providers failed: %s", last_error)
+    logging.getLogger(__name__).warning("All vision providers failed: %r", last_error)
     raise VisionError(
         "Vision-Scan fehlgeschlagen. Bitte später erneut versuchen."
     )
