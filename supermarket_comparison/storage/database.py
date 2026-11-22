@@ -73,23 +73,30 @@ class Database:
                 )
 
         # Own-receipt prices are inserted as verified since 5fdbf02; promote
-        # any rows older saves left pending.  Flagged rows (pending_review)
-        # and other sources (scout, manual) are deliberately untouched.
-        # Idempotent: a second run finds nothing to change.
-        self._conn.execute(
-            """
-            UPDATE community_prices
-               SET status = 'verified', updated_at = ?
-             WHERE source = 'receipt' AND status = 'pending'
-            """,
-            (
-                datetime.now(UTC)
-                .replace(microsecond=0)
-                .isoformat()
-                .replace("+00:00", "Z"),
-            ),
-        )
-        self._conn.commit()
+        # the rows older saves left pending — ONCE.  Crowd imports share
+        # source='receipt' (import_receipt default), so a standing UPDATE
+        # would bypass the scout confirmation flow at every restart; the
+        # meta flag keeps this a one-time backfill.  Flagged rows
+        # (pending_review, review_reason) and other sources (scout, manual)
+        # are deliberately untouched.
+        done = self._conn.execute(
+            "SELECT value FROM meta WHERE key = 'community_receipt_backfill_done'"
+        ).fetchone()
+        if done is None:
+            self._conn.execute(
+                """
+                UPDATE community_prices
+                   SET status = 'verified', updated_at = ?
+                 WHERE source = 'receipt' AND status = 'pending'
+                   AND review_reason IS NULL
+                """,
+                (datetime.now(UTC).replace(microsecond=0).isoformat(),),
+            )
+            self._conn.execute(
+                "INSERT OR REPLACE INTO meta(key, value)"
+                " VALUES ('community_receipt_backfill_done', '1')"
+            )
+            self._conn.commit()
 
         # Iteration 10: remove placeholder brands and unverifiable images that
         # the old, too-loose Open Food Facts text match produced.
