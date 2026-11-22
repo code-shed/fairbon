@@ -34,6 +34,7 @@ __all__ = [
     "BYOK_HEADER",
     "MAX_ITEMS",
     "MAX_STRING_LEN",
+    "OPENCODE_BASE_URL",
     "PriceGuard",
     "VisionError",
     "VisionResult",
@@ -52,6 +53,9 @@ MIN_PRICE: Final = 0.01
 MAX_PRICE: Final = 5_000.0
 
 _ID_RE: Final = re.compile(r"[^a-zA-Z0-9_-]")
+
+#: OpenCode Zen/Console exposes an OpenAI-compatible endpoint.
+OPENCODE_BASE_URL: Final = "https://opencode.ai/inference/openai/v1"
 
 _VISION_SYSTEM_PROMPT: Final = """\
 Du bist ein Kassenbon-Parser. Der Benutzer schickt dir ein Foto eines \
@@ -147,8 +151,10 @@ def normalize_provider_name(name: str | None) -> str:
     cleaned = (name or "").strip().lower().replace("-", "_")
     if cleaned in {"google", "googleai", "geminiapi"}:
         return "gemini"
-    if cleaned in {"openai", "openai_compat", "openai-compatible"}:
+    if cleaned in {"openai", "openai_compat", "openai_compatible"}:
         return "openai_compatible"
+    if cleaned in {"opencode", "opencode_zen", "opencode_console", "zen"}:
+        return "opencode"
     return cleaned
 
 
@@ -400,6 +406,14 @@ async def _call_provider(
     if provider == "gemini":
         return await _call_gemini(
             httpx_client, api_key=api_key, model=model, image=image
+        )
+    if provider == "opencode":
+        return await _call_openai_compatible(
+            httpx_client,
+            base_url=base_url or OPENCODE_BASE_URL,
+            api_key=api_key,
+            model=model,
+            image=image,
         )
     if provider == "mistral":
         # Mistral's OpenAI-compatible endpoint.

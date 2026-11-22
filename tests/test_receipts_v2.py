@@ -234,6 +234,67 @@ async def test_vision_uses_primary_when_it_succeeds(
     assert transport.calls == ["gemini"]
 
 
+def test_opencode_is_a_provider_alias() -> None:
+    from supermarket_comparison.services.receipt_vision import normalize_provider_name
+
+    assert normalize_provider_name("opencode") == "opencode"
+    assert normalize_provider_name("opencode-zen") == "opencode"
+    assert normalize_provider_name("zen") == "opencode"
+
+
+@pytest.mark.asyncio
+async def test_opencode_provider_uses_openai_compatible_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from supermarket_comparison.config import get_settings
+    from supermarket_comparison.services import receipt_vision as rv
+
+    settings = get_settings()
+    object.__setattr__(settings, "vision_primary_provider", "opencode")
+    object.__setattr__(settings, "vision_primary_api_key", "test-opencode-key")
+    object.__setattr__(settings, "vision_primary_model", "mimo-v2.6-flash-free")
+
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers.get("authorization")
+        body = json.dumps(
+            {
+                "store": "netto",
+                "postal_code": "65618",
+                "date": "2026-11-22",
+                "currency": "EUR",
+                "total_cents": 249,
+                "items": [
+                    {
+                        "raw_text": "Butter 250g",
+                        "normalized_name": "Butter 250g",
+                        "category": "Lebensmittel",
+                        "quantity": 0.25,
+                        "unit": "kg",
+                        "price_cents": 249,
+                        "vat_rate": 7,
+                    }
+                ],
+            }
+        )
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": body}}]}
+        )
+
+    transport = httpx.MockTransport(handler)
+    result = await rv.extract_with_vision(
+        rv.SanitizedUploadImage(data=_fake_image_bytes()),
+        client_factory=lambda: httpx.AsyncClient(transport=transport),
+    )
+
+    assert seen["url"] == "https://opencode.ai/inference/openai/v1/chat/completions"
+    assert seen["auth"] == "Bearer test-opencode-key"
+    assert result.provider == "opencode"
+    assert result.items[0]["price_cents"] == 249
+
+
 # ---------------------------------------------------------------------------
 # eBon text path (local, free, deterministic)
 # ---------------------------------------------------------------------------
