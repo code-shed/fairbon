@@ -63,6 +63,14 @@ OPENCODE_ZEN_BASE_URL: Final = "https://opencode.ai/inference/openai/v1"
 #: Stable per-process session id (Go asks clients to send one).
 OPENCODE_SESSION: Final = uuid.uuid4().hex
 
+#: Default vision model per provider when the user brings their own key.
+_BYOK_DEFAULT_MODELS: Final[dict[str, str]] = {
+    "gemini": "gemini-2.5-flash-lite",
+    "mistral": "mistral-small-latest",
+    "opencode": "glm-5.3-flash",
+    "openai_compatible": "gpt-4o-mini",
+}
+
 _VISION_SYSTEM_PROMPT: Final = """\
 Du bist ein Kassenbon-Parser. Der Benutzer schickt dir ein Foto eines \
 deutschen Kassenbons (Supermarkt, Drogerie o. A.).
@@ -119,6 +127,10 @@ class PriceGuard:
 
 class VisionError(RuntimeError):
     """Provider failure that should fall back (or surface to the user)."""
+
+
+class VisionKeyRejected(VisionError):
+    """The user's own key was refused by the provider; retrying will not help."""
 
 
 class OutputValidationError(VisionError):
@@ -473,15 +485,31 @@ async def extract_with_vision(
     # BYOK: the user's own key; never stored or logged.
     if user_key:
         provider = normalize_provider_name(user_provider or "openai_compatible")
-        model = settings.vision_primary_model or "gpt-4o-mini"
-        async with make_client() as client:
-            text = await _call_provider(
-                client,
-                provider=provider,
-                api_key=user_key,
-                model=model,
-                image=image,
-            )
+        model = _BYOK_DEFAULT_MODELS.get(provider, "gpt-4o-mini")
+        try:
+            async with make_client() as client:
+                text = await _call_provider(
+                    client,
+                    provider=provider,
+                    api_key=user_key,
+                    model=model,
+                    image=image,
+                )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in {401, 403}:
+                raise VisionKeyRejected(
+                    "Der eigene Schlüssel wurde abgelehnt – bitte Schlüssel und "
+                    "Anbieter prüfen."
+                ) from exc
+            raise VisionError(
+                "Vision-Scan mit eigenem Schlüssel fehlgeschlagen. Bitte später "
+                "erneut versuchen."
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise VisionError(
+                "Vision-Scan mit eigenem Schlüssel fehlgeschlagen. Bitte später "
+                "erneut versuchen."
+            ) from exc
         return _validate_output(_extract_json(text), provider=provider)
 
     primary = normalize_provider_name(settings.vision_primary_provider)

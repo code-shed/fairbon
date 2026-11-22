@@ -635,6 +635,32 @@ def test_export_xlsx_two_sheets_with_real_numbers(
     assert 7.0 in values and 19.0 in values
 
 
+def test_export_shows_store_names_not_slugs(
+    client: TestClient, repository: Repository
+) -> None:
+    repository.insert_user_receipt(
+        owner_token=OWNER,
+        store="penny",
+        postal_code="65618",
+        country_code="DE",
+        currency="EUR",
+        receipt_date="2026-11-21",
+        total_cents=174,
+        shared_to_community=False,
+        items=json.loads(_items_payload()),
+    )
+
+    from openpyxl import load_workbook
+
+    xlsx = client.get(f"{PREFIX}/receipts/export?format=xlsx")
+    rows = load_workbook(io.BytesIO(xlsx.content))["Rohdaten"]
+    assert rows.cell(2, 3).value == "Penny"
+
+    csv_text = client.get(f"{PREFIX}/receipts/export?format=csv").text
+    assert ";Penny;" in csv_text
+    assert ";penny;" not in csv_text
+
+
 def test_export_reconciles_with_deposits(
     client: TestClient, repository: Repository
 ) -> None:
@@ -786,6 +812,35 @@ def test_global_scan_cap_returns_429_and_byok_bypasses(
 
     scan_per_ip_limiter.reset()
     scan_daily_global.reset()
+
+
+def test_byok_rejected_key_returns_422_without_leaking_it(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import supermarket_comparison.services.receipt_vision as _rv
+
+    def reject(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"error": "invalid api key"})
+
+    mock = httpx.MockTransport(reject)
+    real_async_client = _rv.httpx.AsyncClient
+    monkeypatch.setattr(
+        _rv.httpx, "AsyncClient", lambda **kwargs: real_async_client(transport=mock)
+    )
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("receipt.jpg", _fake_image_bytes(), "image/jpeg")},
+        headers={
+            "X-User-Vision-Key": "rejected-user-key",
+            "X-User-Vision-Provider": "gemini",
+            "X-Owner-Token": OWNER,
+        },
+    )
+
+    assert response.status_code == 422
+    assert "abgelehnt" in response.json()["detail"]
+    assert "rejected-user-key" not in response.text
 
 
 def test_scan_without_owner_token_returns_422(client: TestClient) -> None:

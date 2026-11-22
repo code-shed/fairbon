@@ -29,6 +29,7 @@ from ...services.receipt_vision import (
     BYOK_HEADER,
     BYOK_PROVIDER_HEADER,
     VisionError,
+    VisionKeyRejected,
     extract_with_vision,
 )
 from ...services.upload_security import (
@@ -144,6 +145,8 @@ async def _scan_upload(
             user_key=user_key,
             user_provider=(request.headers.get(BYOK_PROVIDER_HEADER) or "").strip(),
         )
+    except VisionKeyRejected as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except VisionError as exc:
         message = str(exc)
         status = 503 if "nicht konfiguriert" in message else 502

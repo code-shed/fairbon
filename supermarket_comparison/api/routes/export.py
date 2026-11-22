@@ -50,6 +50,29 @@ ROHDATA_COLUMNS: list[str] = [
     "Währung",
 ]
 
+#: Display names for store slugs (the export shows names, not slugs).
+STORE_LABELS: dict[str, str] = {
+    "aldi": "Aldi",
+    "dm": "dm",
+    "edeka": "Edeka",
+    "frischmarkt": "Frischmarkt",
+    "globus": "Globus",
+    "kaufland": "Kaufland",
+    "lidl": "Lidl",
+    "netto": "Netto",
+    "penny": "Penny",
+    "rewe": "Rewe",
+    "rossmann": "Rossmann",
+}
+
+
+def _store_label(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return "Sonstiges"
+    return STORE_LABELS.get(text.lower(), text[:1].upper() + text[1:])
+
+
 #: VAT bands shown in the summary.
 VAT_BANDS: list[float] = [19.0, 7.0, 0.0]
 
@@ -114,7 +137,7 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
     for r, row in enumerate(rows, start=2):
         ws.cell(row=r, column=1, value=row["receipt_date"])
         ws.cell(row=r, column=2, value=row["receipt_id"])
-        ws.cell(row=r, column=3, value=row["store"])
+        ws.cell(row=r, column=3, value=_store_label(row["store"]))
         ws.cell(row=r, column=4, value=row["name"])
         ws.cell(row=r, column=5, value=row["category"])
         ws.cell(row=r, column=6, value="Privat" if row["private"] else "Geschäftlich")
@@ -213,7 +236,7 @@ def _csv_text(rows: list[dict[str, Any]], *, exclude_private: bool) -> str:
             [
                 row["receipt_date"],
                 row["receipt_id"],
-                row["store"],
+                _store_label(row["store"]),
                 row["name"],
                 row["category"],
                 "Privat" if row["private"] else "Geschäftlich",
