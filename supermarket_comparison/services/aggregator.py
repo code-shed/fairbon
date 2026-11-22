@@ -269,9 +269,11 @@ class Aggregator:
         if not query or not query.strip():
             return []
 
+        # Store chips must not abort the search: community (and standard)
+        # prices are local sources without any scraper, and no scraper ever
+        # matches the chain ids the UI sends.  Unmatched scrapers simply do
+        # not fan out; the chips filter the results instead.
         selected = self._select(stores)
-        if not selected:
-            return []
 
         tasks: list[Any] = [
             self._fetch_offers(
@@ -306,6 +308,7 @@ class Aggregator:
                 await self._fetch_community(
                     query=query,
                     postal_code=postal_code,
+                    stores=stores,
                     errors=errors,
                 )
             )
@@ -317,6 +320,7 @@ class Aggregator:
         *,
         query: str,
         postal_code: str | None,
+        stores: Sequence[str] | str | None = None,
         errors: dict[str, Exception] | None = None,
     ) -> list[NormalizedProduct]:
         """Community-contributed shelf prices (local database, no network)."""
@@ -341,7 +345,14 @@ class Aggregator:
                 query=query,
                 postal_code=postal_code,
             )
-            return to_products(aggregated)
+            products = to_products(aggregated)
+            wanted = _store_filter(stores)
+            if wanted:
+                # Unchecked chain chips hide their community rows.
+                products = [
+                    product for product in products if product.store in wanted
+                ]
+            return products
         except Exception as exc:  # pragma: no cover - defensive
             target["community"] = exc
             return []
