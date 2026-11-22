@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any, Self
@@ -70,6 +71,25 @@ class Database:
                 self._conn.execute(
                     f"ALTER TABLE community_prices ADD COLUMN {column} TEXT"
                 )
+
+        # Own-receipt prices are inserted as verified since 5fdbf02; promote
+        # any rows older saves left pending.  Flagged rows (pending_review)
+        # and other sources (scout, manual) are deliberately untouched.
+        # Idempotent: a second run finds nothing to change.
+        self._conn.execute(
+            """
+            UPDATE community_prices
+               SET status = 'verified', updated_at = ?
+             WHERE source = 'receipt' AND status = 'pending'
+            """,
+            (
+                datetime.now(UTC)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z"),
+            ),
+        )
+        self._conn.commit()
 
         # Iteration 10: remove placeholder brands and unverifiable images that
         # the old, too-loose Open Food Facts text match produced.
