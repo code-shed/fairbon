@@ -248,6 +248,22 @@ def test_byok_provider_select_is_wired() -> None:
     assert '"X-User-Vision-Provider"' in api
 
 
+def test_markets_are_freely_enterable_and_filterable() -> None:
+    """Any market can be entered at save; own stores join the filter chips."""
+    html = (FRONTEND / "index.html").read_text()
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    prices = (FRONTEND / "js" / "views" / "prices.js").read_text()
+
+    assert 'id="add-store"' in html
+    assert 'id="store-options"' in html
+    assert "els.storeField.value.trim()" in sheet
+    assert "option.value = store.id" in sheet
+    # The price comparison filter grows with the user's own stores.
+    assert "ownStoreIds" in prices
+    assert 'NS.api.get("/api/v1/receipts")' in prices
+    assert 'NS.on("receipts-changed", collectOwnStores)' in prices
+
+
 def test_business_expenses_feature_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     state = (FRONTEND / "js" / "state.js").read_text()
@@ -273,7 +289,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v9" in sw
+    assert "fairbon-v10" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

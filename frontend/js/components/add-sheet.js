@@ -36,6 +36,7 @@
     els.summary = $("add-summary");
     els.banner = $("demo-banner");
     els.queueInfo = $("add-queue-info");
+    els.storeField = $("add-store");
     els.businessWrap = $("add-business-wrap");
     els.business = $("add-business");
     els.warnings = $("add-warnings");
@@ -67,6 +68,15 @@
     $("add-manual").addEventListener("click", manual);
     els.save.addEventListener("click", save);
     els.skip.addEventListener("click", skipQueued);
+    var storeOptions = $("store-options");
+    if (storeOptions && !storeOptions.options.length) {
+      NS.STORES.forEach(function (store) {
+        var option = document.createElement("option");
+        option.value = store.id;
+        option.label = store.label;
+        storeOptions.appendChild(option);
+      });
+    }
     var closeBanner = $("demo-banner-close");
     if (closeBanner) {
       closeBanner.addEventListener("click", function () {
@@ -314,6 +324,7 @@
   function renderPreview(fromDemo) {
     els.preview.hidden = false;
     els.items.textContent = "";
+    els.storeField.value = (scanned && scanned.store) || "";
     els.banner.hidden = !(fromDemo && !NS.storage.get(DEMO_BANNER_KEY, false));
 
     items.forEach(function (item, index) {
@@ -542,7 +553,10 @@
     }
     var total = totalCents();
     var data = new FormData();
-    data.append("store", scanned && scanned.store ? scanned.store : "Sonstiges");
+    data.append(
+      "store",
+      els.storeField.value.trim() || (scanned && scanned.store) || "Sonstiges"
+    );
     data.append("postal_code", NS.state.postalCode);
     data.append("country_code", NS.state.country);
     data.append("currency", (scanned && scanned.currency) || "EUR");

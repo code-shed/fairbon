@@ -38,14 +38,23 @@
 
     els.postal.value = NS.state.postalCode;
     renderStores();
+    collectOwnStores();
+    NS.on("receipts-changed", collectOwnStores);
     bindEvents();
     fetchCoverage();
     bindDetailModal();
   }
 
+  var ownStoreIds = [];
+
   function renderStores() {
     els.storeGrid.textContent = "";
-    NS.STORES.forEach(function (store) {
+    var stores = NS.STORES.slice();
+    ownStoreIds.forEach(function (id) {
+      var known = stores.some(function (store) { return store.id === id; });
+      if (!known) { stores.push(NS.storeInfo(id)); }
+    });
+    stores.forEach(function (store) {
       var label = document.createElement("label");
       label.className = "store-chip";
       var input = document.createElement("input");
@@ -58,6 +67,18 @@
       label.appendChild(span);
       els.storeGrid.appendChild(label);
     });
+  }
+
+  function collectOwnStores() {
+    NS.api.get("/api/v1/receipts").then(function (receipts) {
+      var seen = {};
+      (receipts || []).forEach(function (receipt) {
+        var id = String(receipt.store || "").trim();
+        if (id) { seen[id] = true; }
+      });
+      ownStoreIds = Object.keys(seen);
+      renderStores();
+    }).catch(function () { /* offline: keep the fixed chains */ });
   }
 
   function selectedStores() {
