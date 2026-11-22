@@ -1,0 +1,4 @@
+#!/bin/sh
+# Local git hook: block a push that would publish secrets or private data.
+# Install: cp scripts/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+exec python3 scripts/check_secrets.py

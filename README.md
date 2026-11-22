@@ -80,6 +80,26 @@ Pillow, pypdf, openpyxl, pytest, ruff, and a modular vanilla-JS PWA
 
 ---
 
+## 🔒 Before pushing — secret check
+
+Never commit `.env`, databases, API keys or personal data. Run:
+
+```bash
+python3 scripts/check_secrets.py
+```
+
+The check compares real values from your local `.env` against all tracked
+files and scans staged changes for key/token patterns. It prints findings
+without ever showing the secret itself and exits non-zero if anything looks
+wrong. The local `pre-push` hook runs it automatically; install it in a fresh
+clone with:
+
+```bash
+cp scripts/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
+---
+
 ## 🤝 Contributing – Contributing Guide
 
 We welcome **every kind of contribution**: code, docs, issues, ideas, tests, translations, design.
