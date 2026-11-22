@@ -1150,6 +1150,10 @@ input, select, textarea { font-size: 16px; }
   background: var(--info-bg); color: var(--info);
   border-color: color-mix(in srgb, var(--info) 35%, transparent);
 }
+.pill-badge.business {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
 .pill-badge.discount {
   background: var(--accent-soft); color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);

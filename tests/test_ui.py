@@ -248,6 +248,27 @@ def test_byok_provider_select_is_wired() -> None:
     assert '"X-User-Vision-Provider"' in api
 
 
+def test_business_expenses_feature_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    state = (FRONTEND / "js" / "state.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    listing = (FRONTEND / "js" / "views" / "receipts.js").read_text()
+    css = (FRONTEND / "css" / "styles.css").read_text()
+
+    # Settings switch gates the whole feature (off by default).
+    assert 'id="settings-business"' in html
+    assert 'businessExpenses: NS.storage.get("fairbon.business_expenses"' in state
+    assert 'NS.storage.set("fairbon.business_expenses"' in app
+    # The add sheet only shows the switch when the setting is on.
+    assert 'id="add-business-wrap"' in html
+    assert "els.businessWrap.hidden = NS.state.businessExpenses !== true" in sheet
+    assert 'data.append(\n      "is_business"' in sheet
+    # The receipts list badges business receipts.
+    assert '"pill-badge business"' in listing
+    assert ".pill-badge.business" in css
+
+
 def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 

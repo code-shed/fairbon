@@ -101,6 +101,7 @@ def _receipts_with_items(
                     "name": item["normalized_name"] or item["raw_text"] or "",
                     "category": item["category"] or "Sonstiges",
                     "private": bool(item["is_private"]),
+                    "is_business": bool(receipt.get("is_business")),
                     "vat_rate": vat_rate,
                     "netto": netto_cents / 100.0,
                     "tax": tax_cents / 100.0,
@@ -140,7 +141,11 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
         ws.cell(row=r, column=3, value=_store_label(row["store"]))
         ws.cell(row=r, column=4, value=row["name"])
         ws.cell(row=r, column=5, value=row["category"])
-        ws.cell(row=r, column=6, value="Privat" if row["private"] else "Geschäftlich")
+        ws.cell(
+            row=r,
+            column=6,
+            value="Geschäftlich" if row["is_business"] else "Privat",
+        )
         ws.cell(row=r, column=7, value=row["vat_rate"])
         ws.cell(row=r, column=8, value=round(row["netto"], 2))
         ws.cell(row=r, column=9, value=round(row["tax"], 2))
@@ -217,6 +222,51 @@ def _xlsx_bytes(rows: list[dict[str, Any]], *, exclude_private: bool) -> bytes:
         )
         cell.font = Font(bold=True)
 
+    # ---- Geschäftliche Ausgaben (selbständige Steuer) ---------------------
+    # Rendered only when business receipts exist, so private-only exports
+    # stay compact.  Same band breakdown, business rows only.
+    business_rows = [row for row in rows if row["is_business"]]
+    if business_rows:
+        row_i += 2
+        title = ws2.cell(row=row_i, column=1, value="Geschäftliche Ausgaben")
+        title.font = Font(bold=True)
+        row_i += 1
+        for col, title_ in enumerate(
+            ("MwSt-Satz", "Netto", "Steuer", "Brutto", "Pfand"), start=1
+        ):
+            cell = ws2.cell(row=row_i, column=col, value=title_)
+            cell.font = header_font
+            cell.fill = header_fill
+        row_i += 1
+        for band in VAT_BANDS:
+            filtered = [
+                r
+                for r in business_rows
+                if abs(r["vat_rate"] - band) < 0.01
+            ]
+            if not filtered:
+                continue
+            _row(
+                [
+                    (1, band),
+                    (2, round(sum(x["netto"] for x in filtered), 2)),
+                    (3, round(sum(x["tax"] for x in filtered), 2)),
+                    (4, round(sum(x["brutto"] for x in filtered), 2)),
+                    (5, round(sum(x["deposit"] for x in filtered), 2)),
+                ],
+                row_i,
+            )
+            row_i += 1
+        cell = ws2.cell(row=row_i, column=1, value="GESAMT GESCHÄFTLICH")
+        cell.font = Font(bold=True)
+        for col, key in ((2, "netto"), (3, "tax"), (4, "brutto"), (5, "deposit")):
+            cell = ws2.cell(
+                row=row_i,
+                column=col,
+                value=round(sum(x[key] for x in business_rows), 2),
+            )
+            cell.font = Font(bold=True)
+
     for col in range(1, 6):
         ws2.column_dimensions[get_column_letter(col)].width = 16
 
@@ -239,7 +289,7 @@ def _csv_text(rows: list[dict[str, Any]], *, exclude_private: bool) -> str:
                 _store_label(row["store"]),
                 row["name"],
                 row["category"],
-                "Privat" if row["private"] else "Geschäftlich",
+                "Geschäftlich" if row["is_business"] else "Privat",
                 _fmt(row["vat_rate"]),
                 _fmt(row["netto"]),
                 _fmt(row["tax"]),

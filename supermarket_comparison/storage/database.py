@@ -72,6 +72,20 @@ class Database:
                     f"ALTER TABLE community_prices ADD COLUMN {column} TEXT"
                 )
 
+        # Business expenses (self-employed): receipts can be marked
+        # geschäftlich; older databases predate the column.
+        user_receipt_columns = {
+            row["name"]
+            for row in self._conn.execute(
+                "PRAGMA table_info(user_receipts)"
+            ).fetchall()
+        }
+        if "is_business" not in user_receipt_columns:
+            self._conn.execute(
+                "ALTER TABLE user_receipts ADD COLUMN is_business"
+                " INTEGER NOT NULL DEFAULT 0"
+            )
+
         # Own-receipt prices are inserted as verified since 5fdbf02; promote
         # the rows older saves left pending — ONCE.  Crowd imports share
         # source='receipt' (import_receipt default), so a standing UPDATE

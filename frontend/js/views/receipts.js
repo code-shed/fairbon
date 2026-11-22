@@ -143,6 +143,13 @@
       total.textContent = euro.format((receipt.total_cents || 0) / 100);
       row.appendChild(total);
 
+      if (receipt.is_business) {
+        var businessBadge = document.createElement("span");
+        businessBadge.className = "pill-badge business";
+        businessBadge.textContent = "Geschäftlich";
+        row.appendChild(businessBadge);
+      }
+
       if (receipt.shared_to_community) {
         var shared = document.createElement("span");
         shared.className = "validity standard";

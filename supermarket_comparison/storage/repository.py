@@ -397,11 +397,13 @@ class Repository:
         total_cents: int,
         shared_to_community: bool,
         items: Iterable[dict[str, Any]],
+        is_business: bool = False,
     ) -> int:
         """Insert a personal receipt and return its id.
 
         ``owner_token`` is the only access key (guest mode). Items are stored
-        as cents (integers) to avoid float drift.
+        as cents (integers) to avoid float drift. ``is_business`` marks a
+        geschäftliche Ausgabe (self-employed tax export).
         """
 
         from datetime import UTC, datetime
@@ -411,8 +413,9 @@ class Repository:
             """
             INSERT INTO user_receipts
                 (owner_token, store, postal_code, country_code, currency,
-                 receipt_date, total_cents, shared_to_community, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 receipt_date, total_cents, shared_to_community, is_business,
+                 created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 owner_token,
@@ -423,6 +426,7 @@ class Repository:
                 receipt_date,
                 int(total_cents),
                 1 if shared_to_community else 0,
+                1 if is_business else 0,
                 now,
             ),
         )

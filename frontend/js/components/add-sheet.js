@@ -36,6 +36,8 @@
     els.summary = $("add-summary");
     els.banner = $("demo-banner");
     els.queueInfo = $("add-queue-info");
+    els.businessWrap = $("add-business-wrap");
+    els.business = $("add-business");
     els.warnings = $("add-warnings");
     els.skip = $("add-skip");
     if (!els.modal) { return; }
@@ -95,6 +97,8 @@
     els.summary.hidden = true;
     els.summary.textContent = "";
     els.save.textContent = isDemo ? "Als Demo speichern" : "Bon speichern";
+    els.businessWrap.hidden = NS.state.businessExpenses !== true;
+    els.business.checked = false;
     els.modal.hidden = false;
     els.backdrop.hidden = false;
     var close = $("add-close");
@@ -550,6 +554,10 @@
       !isDemo && NS.state.shareOptin === true ? "true" : "false"
     );
     data.append("is_demo", isDemo ? "true" : "false");
+    data.append(
+      "is_business",
+      els.businessWrap.hidden ? "false" : (els.business.checked ? "true" : "false")
+    );
     data.append("items_json", JSON.stringify(items));
 
     var demoFlag = isDemo;

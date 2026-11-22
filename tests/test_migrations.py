@@ -102,3 +102,21 @@ def test_backfill_runs_once_and_spares_rows_with_review_reason(tmp_path) -> None
         "Gold": "pending",
         "Neu": "pending",
     }
+
+
+def test_migrate_adds_is_business_column(tmp_path) -> None:
+    path = str(tmp_path / "business.db")
+    database = Database(path)
+    conn = database._conn
+    conn.execute("ALTER TABLE user_receipts DROP COLUMN is_business")
+    conn.commit()
+    database.close()
+
+    database = Database(path)  # _migrate re-adds the column
+
+    columns = {
+        row["name"]
+        for row in database._conn.execute("PRAGMA table_info(user_receipts)")
+    }
+    database.close()
+    assert "is_business" in columns

@@ -1236,3 +1236,96 @@ def test_scan_without_owner_token_returns_422(client: TestClient) -> None:
     )
     # 429/422/503/200 all acceptable (rate limit, validation, no vision).
     assert response.status_code in (401, 422, 200, 503)
+
+
+def test_receipt_can_be_marked_as_business(client: TestClient) -> None:
+    payload = {
+        "store": "REWE",
+        "postal_code": "65618",
+        "country_code": "DE",
+        "currency": "EUR",
+        "receipt_date": "2026-11-22",
+        "total_cents": 149,
+        "share_anonymized": "false",
+        "items_json": json.dumps(
+            [
+                {
+                    "raw_text": "Milch 1,49 A",
+                    "normalized_name": "Milch",
+                    "category": "Lebensmittel",
+                    "quantity": 1.0,
+                    "unit": "stueck",
+                    "price_cents": 149,
+                }
+            ]
+        ),
+    }
+
+    response = client.post(
+        f"{PREFIX}/receipts", data={**payload, "is_business": "true"}
+    )
+    assert response.status_code == 200
+    listing = client.get(f"{PREFIX}/receipts").json()
+    assert listing[0]["is_business"] == 1
+
+    client.post(f"{PREFIX}/receipts", data=payload)
+    listing = client.get(f"{PREFIX}/receipts").json()
+    assert listing[0]["is_business"] == 0
+    assert listing[1]["is_business"] == 1
+
+
+def test_export_marks_business_by_receipt_not_item_flag(
+    client: TestClient, repository: Repository
+) -> None:
+    from openpyxl import load_workbook
+
+    items = json.loads(_items_payload())
+    business_id = repository.insert_user_receipt(
+        owner_token=OWNER,
+        store="REWE",
+        postal_code="65618",
+        country_code="DE",
+        currency="EUR",
+        receipt_date="2026-11-21",
+        total_cents=174,
+        shared_to_community=False,
+        is_business=True,
+        items=items,
+    )
+    repository.insert_user_receipt(
+        owner_token=OWNER,
+        store="Penny",
+        postal_code="65618",
+        country_code="DE",
+        currency="EUR",
+        receipt_date="2026-11-22",
+        total_cents=174,
+        shared_to_community=False,
+        items=items,
+    )
+
+    response = client.get(f"{PREFIX}/receipts/export?format=xlsx")
+    assert response.status_code == 200
+    wb = load_workbook(io.BytesIO(response.content))
+    ws = wb["Rohdaten"]
+
+    seen_private = seen_business = False
+    for row in range(2, ws.max_row + 1):
+        receipt_id = ws.cell(row, 2).value
+        expected = "Geschäftlich" if receipt_id == business_id else "Privat"
+        assert ws.cell(row, 6).value == expected
+        if expected == "Geschäftlich":
+            seen_business = True
+        else:
+            seen_private = True
+    assert seen_private and seen_business
+
+    ws2 = wb["Steuer-Zusammenfassung"]
+    values2 = [
+        cell
+        for row2 in ws2.iter_rows(values_only=True)
+        for cell in row2
+        if cell is not None
+    ]
+    assert "Geschäftliche Ausgaben" in values2
+    assert "GESAMT GESCHÄFTLICH" in values2

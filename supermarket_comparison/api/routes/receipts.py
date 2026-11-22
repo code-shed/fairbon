@@ -549,6 +549,7 @@ async def save_receipt(
     total_cents: Annotated[int, Form()] = 0,
     share_anonymized: Annotated[bool, Form()] = False,
     is_demo: Annotated[bool, Form()] = False,
+    is_business: Annotated[bool, Form()] = False,
     items_json: Annotated[str, Form()] = "[]",
 ) -> dict[str, Any]:
     """Create a personal receipt.
@@ -613,6 +614,7 @@ async def save_receipt(
         receipt_date=receipt_date,
         total_cents=int(total_cents),
         shared_to_community=effective_share,
+        is_business=is_business,
         items=items,
     )
 

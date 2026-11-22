@@ -185,6 +185,7 @@ CREATE TABLE IF NOT EXISTS user_receipts (
     receipt_date        TEXT NOT NULL,
     total_cents         INTEGER NOT NULL DEFAULT 0,
     shared_to_community INTEGER NOT NULL DEFAULT 0,
+    is_business         INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_user_receipts_owner ON user_receipts(owner_token, receipt_date);

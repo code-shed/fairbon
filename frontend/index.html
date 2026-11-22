@@ -400,6 +400,10 @@
       <h3>Erkannte Positionen</h3>
       <ul class="receipt-items" id="add-items"></ul>
       <div class="add-summary" id="add-summary" hidden></div>
+      <label class="switch" for="add-business" id="add-business-wrap" hidden>
+        <input type="checkbox" id="add-business">
+        <span>Geschäftliche Ausgabe</span>
+      </label>
       <button type="button" class="primary" id="add-save">Bon speichern</button>
       <button type="button" class="secondary" id="add-skip" hidden>Überspringen</button>
     </div>
@@ -426,6 +430,10 @@
     <label class="switch" for="settings-share">
       <input type="checkbox" id="settings-share" checked>
       <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
+    </label>
+    <label class="switch" for="settings-business">
+      <input type="checkbox" id="settings-business">
+      <span>Geschäftliche Ausgaben erfassen (für Selbständige)</span>
     </label>
     <label class="field">Eigener Vision-Anbieter (BYOK, optional)
       <select id="settings-byok-provider">
