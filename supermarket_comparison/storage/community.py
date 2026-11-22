@@ -533,23 +533,29 @@ class CommunityStore:
         if not term:
             return []
 
-        params: list[Any] = [f"%{term}%"]
-        clause = "LOWER(name) LIKE ?"
+        # SQL only pre-filters on individual words: names are stored with
+        # punctuation ("Schoko-Bons", "H-Milch 3,5%") while the query is
+        # normalised ("schoko bons").  The exact check happens below.
+        words = [word for word in term.split() if word]
+        clause = " OR ".join("LOWER(name) LIKE ?" for _ in words)
+        params: list[Any] = [f"%{word}%" for word in words]
 
         rows = self.db.query(
             f"""
             SELECT identity, store, postal_code, name
               FROM community_prices
-             WHERE {clause} AND status IN ('approved', 'verified')
+             WHERE ({clause}) AND status IN ('approved', 'verified')
              GROUP BY identity, store, postal_code
              LIMIT ?
             """,
-            (*tuple(params), int(limit) * 10),
+            (*tuple(params), max(200, int(limit) * 20)),
         )
 
         wanted = (postal_code or "").strip()
         aggregated: list[dict[str, Any]] = []
         for row in rows:
+            if term not in normalize_title(row["name"]):
+                continue
             entry = self.aggregate(
                 identity=row["identity"],
                 store=row["store"],

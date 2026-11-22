@@ -413,3 +413,37 @@ def test_community_search_includes_nearby_postal_codes() -> None:
     assert found("65630") == ["65631", "65618"]
     # An unrelated region stays hidden (no 8k-entry geo table needed).
     assert found("12345") == ["12345"]
+
+
+def test_hyphenated_community_names_are_searchable() -> None:
+    """Punctuation in stored names must not hide them from the search."""
+    from supermarket_comparison.storage import CommunityPriceInput, Database, Repository
+
+    repo = Repository(Database(":memory:"))
+    for name in ("Schoko-Bons", "H-Milch 3,5%", "Fenchelsalami"):
+        repo.community.add_price(
+            CommunityPriceInput(
+                name=name,
+                store="penny",
+                price=2.49,
+                postal_code="65618",
+                ean=None,
+                unit="stueck",
+                quantity=1.0,
+                scout_id=None,
+                source="receipt",
+                receipt_id=None,
+            ),
+            auto_verify=True,
+        )
+
+    def names(query: str) -> list[str]:
+        entries = repo.community.aggregated_for_query(
+            query=query, postal_code="65618"
+        )
+        return [entry["name"] for entry in entries]
+
+    assert names("Schoko-Bons") == ["Schoko-Bons"]
+    assert names("Schoko") == ["Schoko-Bons"]
+    assert names("H-Milch 3,5%") == ["H-Milch 3,5%"]
+    assert names("Fenchelsalami") == ["Fenchelsalami"]
