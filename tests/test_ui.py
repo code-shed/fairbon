@@ -220,21 +220,20 @@ def test_share_optin_is_bound_to_settings_state() -> None:
     assert 'NS.storage.set("fairbon.share_optin.v1"' in app
 
 
-def test_plz_pill_opens_popover_not_settings() -> None:
+def test_postal_code_lives_only_in_the_price_search() -> None:
+    """The header PLZ pill is gone; the price search field is the editor."""
     html = (FRONTEND / "index.html").read_text()
     app = (FRONTEND / "js" / "app.js").read_text()
+    prices = (FRONTEND / "js" / "views" / "prices.js").read_text()
 
-    assert 'id="plz-popover"' in html
-    assert 'id="plz-input"' in html
-    assert 'id="plz-save"' in html
-    assert 'aria-haspopup="true"' in html
-    assert "plz-popover" in app
-    # The pill must no longer open the full settings modal.
-    assert 'plzPill.addEventListener("click", open)' not in app
-    # Settings stay reachable via their own close button.
-    assert 'settings-close' in app
-    # The popover is the only editor for the home PLZ — no settings duplicate.
+    # No PLZ UI anywhere except the price comparison form.
+    assert 'id="plz-pill"' not in html
+    assert 'id="plz-popover"' not in html
     assert 'id="settings-plz"' not in html
+    assert 'id="postal-code"' in html
+    # The search field persists via NS.setPostalCode on every search.
+    assert "NS.setPostalCode(els.postal.value)" in prices
+    assert "plzPill" not in app
 
 
 def test_byok_provider_select_is_wired() -> None:
@@ -319,7 +318,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v13" in sw
+    assert "fairbon-v14" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

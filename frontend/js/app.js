@@ -50,7 +50,6 @@
   function bindSettings() {
     var modal = $("settings-modal");
     var backdrop = $("settings-backdrop");
-    var plzPill = $("plz-pill");
     var country = $("settings-country");
     var budget = $("settings-budget");
     var byok = $("settings-byok");
@@ -59,7 +58,6 @@
     var business = $("settings-business");
 
     function syncLabels() {
-      plzPill.textContent = "PLZ " + NS.state.postalCode;
       country.value = NS.state.country || "DE";
       budget.value = NS.state.budget ? String(NS.state.budget) : "";
       byok.value = NS.state.byok || "";
@@ -84,48 +82,6 @@
     $("settings-open").addEventListener("click", open);
     $("settings-close").addEventListener("click", close);
     backdrop.addEventListener("click", close);
-
-    // --- PLZ popover (header pill) -----------------------------------
-    var plzPopover = $("plz-popover");
-    var plzField = $("plz-input");
-    var plzSave = $("plz-save");
-
-    function closePlzPopover() {
-      plzPopover.hidden = true;
-      plzPill.setAttribute("aria-expanded", "false");
-    }
-
-    function savePlzPopover() {
-      NS.setPostalCode(plzField.value);
-      plzField.value = NS.state.postalCode;
-      syncLabels();
-      closePlzPopover();
-      NS.emit("plz-changed", NS.state.postalCode);
-    }
-
-    plzPill.addEventListener("click", function () {
-      plzPopover.hidden = !plzPopover.hidden;
-      var openNow = !plzPopover.hidden;
-      plzPill.setAttribute("aria-expanded", String(openNow));
-      if (openNow) {
-        plzField.value = NS.state.postalCode;
-        plzField.focus();
-        plzField.select();
-      }
-    });
-    plzSave.addEventListener("click", savePlzPopover);
-    plzField.addEventListener("keydown", function (event) {
-      if (event.key === "Enter") { savePlzPopover(); }
-      if (event.key === "Escape") { closePlzPopover(); }
-    });
-    document.addEventListener("click", function (event) {
-      if (plzPopover.hidden) { return; }
-      var wrap = plzPopover.parentNode;
-      if (wrap && !wrap.contains(event.target)) { closePlzPopover(); }
-    });
-    plzPill.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") { closePlzPopover(); }
-    });
 
     country.addEventListener("change", function () {
       NS.state.country = country.value;
@@ -215,8 +171,6 @@
     NS.views.overview.init();
     NS.views.receipts.init();
     NS.components.addSheet.init();
-    var plzPill = $("plz-pill");
-    if (plzPill) { plzPill.textContent = "PLZ " + NS.state.postalCode; }
     switchTab(initialTab());
 
     if ("serviceWorker" in global.navigator) {
