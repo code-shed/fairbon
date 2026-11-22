@@ -379,10 +379,6 @@
       <div class="demo-receipt" id="demo-receipt-card" hidden></div>
       <div id="scan-checklist"></div>
     </section>
-    <label class="switch" for="share-optin">
-      <input type="checkbox" id="share-optin" checked>
-      <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
-    </label>
     <p class="demo-note" id="demo-note" hidden>Beispiel-Bon wird nicht mit der Community geteilt.</p>
     <p class="form-error" id="add-error" hidden></p>
     <div id="add-preview" hidden>
@@ -418,6 +414,10 @@
     </label>
     <label class="field">Monatsbudget (optional, €)
       <input type="number" id="settings-budget" min="0" step="1" placeholder="z. B. 250">
+    </label>
+    <label class="switch" for="settings-share">
+      <input type="checkbox" id="settings-share" checked>
+      <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
     </label>
     <label class="field">Eigener Vision-API-Key (BYOK, optional)
       <input type="password" id="settings-byok" autocomplete="off" placeholder="überspringt Scan-Limits">

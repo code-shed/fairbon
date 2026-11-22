@@ -74,6 +74,7 @@
     country: NS.storage.get("fairbon.country", "DE"),
     budget: Number(NS.storage.get("fairbon.budget", 0)) || 0,
     byok: NS.storage.get("fairbon.byok", ""),
+    shareOptin: NS.storage.get("fairbon.share_optin.v1", true) === true,
     tab: "overview",
     month: ""
   };

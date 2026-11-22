@@ -17,7 +17,6 @@
   var queueWarnings = [];
 
   var DEMO_BANNER_KEY = "fairbon.demo_banner_seen.v1";
-  var OPTIN_KEY = "fairbon.share_optin.v1";
 
   function $(id) { return document.getElementById(id); }
 
@@ -28,7 +27,6 @@
     els.error = $("add-error");
     els.preview = $("add-preview");
     els.items = $("add-items");
-    els.optin = $("share-optin");
     els.save = $("add-save");
     els.progressSection = $("scan-progress");
     els.progressBox = $("scan-checklist");
@@ -67,9 +65,6 @@
     $("add-manual").addEventListener("click", manual);
     els.save.addEventListener("click", save);
     els.skip.addEventListener("click", skipQueued);
-    els.optin.addEventListener("change", function () {
-      NS.storage.set(OPTIN_KEY, els.optin.checked === true);
-    });
     var closeBanner = $("demo-banner-close");
     if (closeBanner) {
       closeBanner.addEventListener("click", function () {
@@ -100,12 +95,6 @@
     els.summary.hidden = true;
     els.summary.textContent = "";
     els.save.textContent = isDemo ? "Als Demo speichern" : "Bon speichern";
-    els.optin.disabled = isDemo;
-    if (isDemo) {
-      els.optin.checked = false;
-    } else {
-      els.optin.checked = NS.storage.get(OPTIN_KEY, false) === true;
-    }
     els.modal.hidden = false;
     els.backdrop.hidden = false;
     var close = $("add-close");
@@ -558,7 +547,7 @@
     // A demo receipt must never reach the community pool.
     data.append(
       "share_anonymized",
-      !isDemo && els.optin.checked ? "true" : "false"
+      !isDemo && NS.state.shareOptin === true ? "true" : "false"
     );
     data.append("is_demo", isDemo ? "true" : "false");
     data.append("items_json", JSON.stringify(items));

@@ -55,6 +55,7 @@
     var country = $("settings-country");
     var budget = $("settings-budget");
     var byok = $("settings-byok");
+    var share = $("settings-share");
 
     function syncLabels() {
       plzPill.textContent = "PLZ " + NS.state.postalCode;
@@ -62,6 +63,7 @@
       country.value = NS.state.country || "DE";
       budget.value = NS.state.budget ? String(NS.state.budget) : "";
       byok.value = NS.state.byok || "";
+      share.checked = NS.state.shareOptin === true;
     }
 
     function open() {
@@ -99,6 +101,10 @@
     byok.addEventListener("change", function () {
       NS.state.byok = byok.value.trim();
       NS.storage.set("fairbon.byok", NS.state.byok);
+    });
+    share.addEventListener("change", function () {
+      NS.state.shareOptin = share.checked === true;
+      NS.storage.set("fairbon.share_optin.v1", NS.state.shareOptin);
     });
     $("settings-reset").addEventListener("click", function () {
       NS.resetOwnerToken();

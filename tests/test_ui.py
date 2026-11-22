@@ -199,16 +199,25 @@ def test_list_tab_has_basket_and_optimizer(client: TestClient) -> None:
     assert 'id="mic"' in html
 
 
-def test_add_sheet_has_three_paths_and_optin(client: TestClient) -> None:
+def test_add_sheet_has_three_paths_and_optin_in_settings(client: TestClient) -> None:
     html = client.get("/").text
 
     assert 'id="add-photo"' in html
     assert 'id="add-ebon"' in html
     assert 'id="add-manual"' in html
-    assert 'id="share-optin"' in html
+    assert 'id="settings-share"' in html
+    assert 'id="share-optin"' not in html
     platform = (FRONTEND / "js" / "platform.js").read_text()
     assert 'input.accept = "image/*"' in platform
     assert 'capture' in platform
+
+
+def test_share_optin_is_bound_to_settings_state() -> None:
+    state = (FRONTEND / "js" / "state.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+
+    assert 'shareOptin: NS.storage.get("fairbon.share_optin.v1", true)' in state
+    assert 'NS.storage.set("fairbon.share_optin.v1"' in app
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -269,11 +278,12 @@ def test_demo_cta_is_present_on_overview_and_add_sheet(client: TestClient) -> No
     assert 'id="demo-receipt-add"' in html
 
 
-def test_demo_flow_has_badge_banner_and_disabled_optin(client: TestClient) -> None:
+def test_demo_flow_has_badge_banner_and_note(client: TestClient) -> None:
     html = client.get("/").text
 
     assert 'id="demo-badge"' in html
     assert 'id="demo-banner"' in html
+    assert 'id="demo-note"' in html
     assert "Beispiel-Bon wird nicht mit der Community geteilt" in html
     assert 'id="scan-progress"' in html
     assert 'id="scan-checklist"' in html
@@ -316,7 +326,7 @@ def test_demo_receipt_contains_expected_sample_data() -> None:
 def test_demo_mode_never_shares_to_community() -> None:
     js = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
 
-    assert "!isDemo && els.optin.checked" in js
+    assert "!isDemo && NS.state.shareOptin === true" in js
     assert "Example" not in js
 
 
