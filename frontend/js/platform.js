@@ -67,6 +67,12 @@
         cancel.className = "camera-cancel";
         cancel.textContent = "Abbrechen";
 
+        var gallery = document.createElement("button");
+        gallery.type = "button";
+        gallery.className = "camera-gallery";
+        gallery.setAttribute("aria-label", "Foto aus der Galerie wählen");
+        gallery.textContent = "Galerie";
+
         var shutter = document.createElement("button");
         shutter.type = "button";
         shutter.className = "camera-shutter";
@@ -112,6 +118,13 @@
           } catch (e) { /* guidance is best effort */ }
         }
 
+        function fallbackToPicker() {
+          if (finished) { return; }
+          finished = true;
+          cleanup();
+          NS.platform.pickImage().then(resolve);
+        }
+
         function take() {
           if (!video.videoWidth) { return; }
           var width = video.videoWidth;
@@ -129,6 +142,7 @@
         }
 
         cancel.addEventListener("click", function () { finish(null); });
+        gallery.addEventListener("click", fallbackToPicker);
         shutter.addEventListener("click", take);
         overlay.addEventListener("click", function (event) {
           if (event.target === overlay) { finish(null); }
@@ -138,6 +152,7 @@
         overlay.appendChild(frame);
         overlay.appendChild(hint);
         overlay.appendChild(cancel);
+        overlay.appendChild(gallery);
         overlay.appendChild(shutter);
         document.body.appendChild(overlay);
 
@@ -157,9 +172,7 @@
           timer = global.setInterval(guide, 700);
         }).catch(function () {
           // Permission denied / no camera: use the plain file picker.
-          finished = true;
-          cleanup();
-          NS.platform.pickImage().then(resolve);
+          fallbackToPicker();
         });
       });
     },

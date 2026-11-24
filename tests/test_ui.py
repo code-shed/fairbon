@@ -344,6 +344,8 @@ def test_camera_capture_has_guidance_and_file_fallback() -> None:
     assert "Näher ranhalten" in platform  # live framing guidance
     assert "camera-frame" in platform and ".camera-frame" in css
     assert "stream.getTracks()" in platform  # camera released after capture
+    assert "camera-gallery" in platform  # bottom-left gallery button
+    assert "gallery.addEventListener" in platform
     assert "NS.platform.pickImage().then(resolve)" in platform  # fallback
     assert "NS.platform.captureReceipt()" in sheet
 
@@ -524,7 +526,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v27" in sw
+    assert "fairbon-v28" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

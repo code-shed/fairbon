@@ -1512,3 +1512,8 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
   font-weight: 700; min-width: 168px !important;
 }
 .camera-cancel { position: absolute; left: 16px; top: calc(16px + env(safe-area-inset-top)); }
+.camera-gallery {
+  position: absolute !important;
+  left: 16px; bottom: calc(20px + env(safe-area-inset-bottom));
+  font-size: .9rem !important;
+}
