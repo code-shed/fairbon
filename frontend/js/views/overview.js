@@ -37,13 +37,10 @@
     $("month-next").addEventListener("click", function () { shiftMonth(-1); });
     if (els.donut) {
       els.donut.style.cursor = "pointer";
-      els.donut.setAttribute("role", "button");
-      els.donut.setAttribute("tabindex", "0");
-      els.donut.setAttribute("aria-label", "Ringansicht wechseln");
       els.donut.addEventListener("click", toggleRingMode);
-      els.donut.addEventListener("keydown", function (event) {
-        if (event.key === "Enter" || event.key === " ") { toggleRingMode(); }
-      });
+    }
+    if (els.ringIndicator) {
+      els.ringIndicator.addEventListener("click", toggleRingMode);
     }
 
     NS.on("receipts-changed", load);
@@ -159,9 +156,13 @@
     var budget = Number(NS.state.budget) || 0;
     var savings = (data.discount_cents || 0) / 100;
     if (ringMode === "savings") {
-      var savedRatio = Math.min(1, budget > 0 ? savings / budget : (total > 0 ? savings / (total / 100) : 0));
-      els.budgetHint.textContent = "Ersparnis durch Rabatte · " + euro.format(savings);
-      drawDonut(total > 0 || savings > 0 ? Math.max(0.04, savedRatio) : 0.04, "var(--accent)");
+      var savedRatio = budget > 0
+        ? savings / budget
+        : (total > 0 ? savings / (total / 100) : 0);
+      els.budgetHint.textContent = savings > 0
+        ? "Ersparnis durch Rabatte · " + euro.format(savings)
+        : "Noch keine Rabatte erfasst";
+      drawDonut(Math.min(1, Math.max(0, savedRatio)), "var(--accent)");
     } else if (budget > 0) {
       var remainingCents = Math.max(0, Math.round(budget * 100) - total);
       var remaining = remainingCents / 100;
@@ -171,10 +172,11 @@
       var perDay = remaining / daysLeft(period.to);
       els.budgetHint.textContent = "Noch " + euro.format(remaining) +
         " übrig · ca. " + euro.format(perDay) + " / Tag";
-      drawDonut(Math.min(1, Math.max(0, ratio)), colour);
+      // Fill with what was spent; the colour warns about what is left.
+      drawDonut(Math.min(1, Math.max(0, total / (budget * 100))), colour);
     } else {
       els.budgetHint.textContent = "Ausgaben";
-      drawDonut(total > 0 ? 0.72 : 0.04, "var(--accent)");
+      drawDonut(total > 0 ? 0.72 : 0, "var(--accent)");
     }
     if (els.ringIndicator) {
       els.ringIndicator.textContent = ringMode === "budget" ? "● ○" : "○ ●";

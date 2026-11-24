@@ -1067,7 +1067,7 @@ input, select, textarea { font-size: 16px; }
   align-items: center; justify-content: center; gap: 2px; pointer-events: none;
 }
 .donut-total { font: 700 clamp(1.5rem, 6vw, 2rem)/1.1 var(--font-display); }
-.donut-sub { font-size: .78rem; color: var(--muted); }
+.donut-sub { font-size: .74rem; color: var(--muted); max-width: 62%; margin: 0 auto; line-height: 1.35; }
 .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat {
   background: var(--surface-alt); border-radius: var(--radius-sm);
@@ -1373,9 +1373,12 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 
 /* --- Budget ring modes & empty state (Phase B) ------------------------- */
 .ring-indicator {
+  display: block; width: 100%; min-height: 44px;
+  border: 0; background: none; cursor: pointer;
   text-align: center; color: var(--muted); font-size: .8rem;
-  letter-spacing: .35em; margin: -4px 0 8px; min-height: 20px;
+  letter-spacing: .35em; margin: -4px 0 8px;
 }
+.ring-indicator:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--radius-sm); }
 .empty-ring {
   width: 84px; height: 84px; margin: 4px auto 12px;
   border-radius: 50%; border: 8px solid var(--surface-alt);

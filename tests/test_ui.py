@@ -332,6 +332,13 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_clearing_the_basket_asks_for_confirmation() -> None:
+    listing = (FRONTEND / "js" / "views" / "list.js").read_text()
+
+    assert "basketClear.addEventListener" in listing
+    assert "Merkliste wirklich leeren?" in listing
+
+
 def test_require_community_sharing_mode_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     state = (FRONTEND / "js" / "state.js").read_text()
@@ -478,7 +485,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v20" in sw
+    assert "fairbon-v23" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

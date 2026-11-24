@@ -23,6 +23,11 @@
     if (!els.basketItems) { return; }
 
     els.basketClear.addEventListener("click", function () {
+      if (!NS.basket.length) { return; }
+      if (!global.confirm(
+        "Merkliste wirklich leeren? " + NS.basket.length +
+        " gemerkte Artikel werden entfernt."
+      )) { return; }
       NS.clearBasket();
     });
     els.basketOptimize.addEventListener("click", optimize);
