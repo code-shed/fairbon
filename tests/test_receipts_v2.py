@@ -1463,3 +1463,38 @@ def test_store_names_are_normalised_on_save(
             receipt_id=response.json()["receipt_id"], owner_token=OWNER
         )
         assert receipt["store"] == expected, (raw, receipt["store"])
+
+
+def test_scan_response_carries_timing_metadata(client: TestClient) -> None:
+    text = b"REWE Markt\nMilch 1,19 A\nSumme 1,19\n"
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("bon.txt", text, "text/plain")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["method"] == "ebon_local"
+    assert isinstance(body["duration_ms"], int)
+    assert body["duration_ms"] >= 0
+    timing = response.headers["server-timing"]
+    assert "total;dur=" in timing
+    assert "method;desc=ebon_local" in timing
+
+
+def test_vision_scan_reports_vision_method(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_gemini_vision(monkeypatch)
+    _partial_ocr_page(monkeypatch)
+
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("scan.pdf", _scanned_pdf(1), "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["engine"] == "vision-pdf"
+    assert body["method"] == "vision"
+    assert "method;desc=vision" in response.headers["server-timing"]

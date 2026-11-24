@@ -17,7 +17,9 @@ from typing import Any, Final
 MAX_PDF_PAGES: Final = 6
 #: Largest embedded image that is decoded (guards against decompression bombs).
 MAX_PAGE_PIXELS: Final = 40_000_000
-JPEG_QUALITY: Final = 90
+JPEG_QUALITY: Final = 82
+#: Match the photo path: vision is much faster on <= 1200 px images.
+VISION_MAX_SIDE: Final = 1200
 
 
 class PdfUnreadable(ValueError):
@@ -37,6 +39,7 @@ def pdf_page_images(
     *,
     max_pages: int = MAX_PDF_PAGES,
     max_pixels: int = MAX_PAGE_PIXELS,
+    max_side: int = VISION_MAX_SIDE,
 ) -> PdfPageImages:
     """Return the scannable pages of *data* as JPEG bytes (1-based numbers)."""
 
@@ -52,7 +55,9 @@ def pdf_page_images(
     numbered = itertools.islice(reader.pages, max_pages)
     for number, page in enumerate(numbered, start=1):
         try:
-            jpeg = _largest_image_as_jpeg(page, max_pixels=max_pixels)
+            jpeg = _largest_image_as_jpeg(
+                page, max_pixels=max_pixels, max_side=max_side
+            )
         except Exception:  # corrupt page: skip it, keep the readable ones
             continue
         if jpeg is not None:
@@ -67,7 +72,9 @@ def _dimension(stream: Any, key: str) -> int:
         return 0
 
 
-def _largest_image_as_jpeg(page: Any, *, max_pixels: int) -> bytes | None:
+def _largest_image_as_jpeg(
+    page: Any, *, max_pixels: int, max_side: int = VISION_MAX_SIDE
+) -> bytes | None:
     best: Any = None
     best_pixels = 0
     for embedded in page.images:
@@ -80,8 +87,12 @@ def _largest_image_as_jpeg(page: Any, *, max_pixels: int) -> bytes | None:
             best, best_pixels = embedded, pixels
     if best is None:
         return None
+    from PIL import Image
+
+    image = best.image.convert("RGB")
+    image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
     buffer = io.BytesIO()
-    best.image.convert("RGB").save(buffer, format="JPEG", quality=JPEG_QUALITY)
+    image.save(buffer, format="JPEG", quality=JPEG_QUALITY)
     return buffer.getvalue()
 
 

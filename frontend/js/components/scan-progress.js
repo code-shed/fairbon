@@ -30,7 +30,16 @@
       list.appendChild(li);
       rows.push({ li: li, icon: icon, text: text });
     });
+    var bar = document.createElement("div");
+    bar.className = "scan-progress-bar";
+    bar.setAttribute("role", "progressbar");
+    bar.setAttribute("aria-valuemin", "0");
+    bar.setAttribute("aria-valuemax", "100");
+    bar.setAttribute("aria-valuenow", "0");
+    var fill = document.createElement("span");
+    bar.appendChild(fill);
     container.appendChild(list);
+    container.appendChild(bar);
 
     function setState(index, state, label) {
       var row = rows[index];
@@ -46,14 +55,34 @@
       start: function () {
         if (rows.length) { setState(0, "running"); }
       },
+      running: function (index, label) {
+        setState(index, "running", label);
+      },
       complete: function (index, label) {
         setState(index, "done", label);
         if (rows[index + 1]) { setState(index + 1, "running"); }
+      },
+      /** fraction 0..1, or null for the indeterminate (waiting) state. */
+      bar: function (fraction) {
+        if (fraction === null || fraction === undefined) {
+          bar.className = "scan-progress-bar indeterminate";
+          return;
+        }
+        var pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+        bar.className = "scan-progress-bar";
+        bar.setAttribute("aria-valuenow", String(pct));
+        fill.style.width = pct + "%";
+      },
+      finish: function () {
+        bar.className = "scan-progress-bar";
+        bar.setAttribute("aria-valuenow", "100");
+        fill.style.width = "100%";
       },
       /** Sequential animation used by the demo (1.6 s total). */
       playDemo: function () {
         if (prefersReducedMotion()) {
           for (var i = 0; i < rows.length; i += 1) { setState(i, "done"); }
+          this.finish();
           return Promise.resolve();
         }
         var delay = 400;
@@ -69,7 +98,11 @@
             });
           });
         });
-        return chain;
+        return chain.then(function () {
+          bar.className = "scan-progress-bar";
+          bar.setAttribute("aria-valuenow", "100");
+          fill.style.width = "100%";
+        });
       },
       warning: function (index, label) {
         setState(index, "warn", label);

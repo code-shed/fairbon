@@ -1617,3 +1617,29 @@ form.search label.switch span { min-width: 0; }
   font-size: .74rem; color: var(--muted);
 }
 .app-legal a { color: var(--muted); text-decoration: underline; }
+
+/* --- Scan upload progress --------------------------------------------- */
+.scan-progress-bar {
+  height: 5px; margin-top: 12px; border-radius: 999px;
+  background: var(--line); overflow: hidden;
+}
+.scan-progress-bar > span {
+  display: block; height: 100%; width: 0; border-radius: inherit;
+  background: var(--accent); transition: width .25s ease;
+}
+.scan-progress-bar.indeterminate > span {
+  width: 35%; opacity: .65;
+  animation: scan-indeterminate 1.4s ease-in-out infinite;
+}
+@keyframes scan-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-progress-bar > span { transition: none; }
+  .scan-progress-bar.indeterminate > span {
+    width: 100%; animation: none; opacity: .35; transform: none;
+  }
+}
+.scan-cancel { min-height: 44px; margin-top: 10px; }
+.scan-duration { margin: 0 0 8px; font-size: .76rem; color: var(--muted); }

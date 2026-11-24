@@ -61,6 +61,83 @@
       }).then(parse).catch(networkError);
     },
 
+    /** Form upload with real progress and cancellation (XHR). */
+    uploadForm: function (path, formData, options) {
+      options = options || {};
+      return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        var settled = false;
+        xhr.open("POST", url(path));
+        var h = headers(options.headers);
+        for (var key in h) {
+          if (Object.prototype.hasOwnProperty.call(h, key)) {
+            xhr.setRequestHeader(key, h[key]);
+          }
+        }
+        function fail(error) {
+          if (settled) { return; }
+          settled = true;
+          reject(error);
+        }
+        if (xhr.upload) {
+          if (options.onProgress) {
+            xhr.upload.onprogress = function (event) {
+              if (event.lengthComputable && event.total) {
+                options.onProgress(Math.min(1, event.loaded / event.total));
+              }
+            };
+          }
+          if (options.onUploaded) {
+            xhr.upload.onload = options.onUploaded;
+          }
+        }
+        function abort() {
+          if (settled) { return; }
+          xhr.abort();
+          var error = new Error("Scan abgebrochen.");
+          error.name = "AbortError";
+          fail(error);
+        }
+        if (options.signal) {
+          if (options.signal.aborted) { abort(); return; }
+          options.signal.addEventListener("abort", abort);
+        }
+        xhr.onload = function () {
+          if (settled) { return; }
+          settled = true;
+          var contentType = xhr.getResponseHeader("content-type") || "";
+          var data;
+          try {
+            data = contentType.indexOf("application/json") >= 0
+              ? JSON.parse(xhr.responseText)
+              : xhr.responseText;
+          } catch (e) {
+            data = null;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            if (NS.emit) { NS.emit("api-online"); }
+            resolve(data);
+            return;
+          }
+          if (xhr.status === 401) { redirectToLogin(); }
+          var error = new Error(
+            data && data.detail ? data.detail : "Anfrage fehlgeschlagen."
+          );
+          error.status = xhr.status;
+          error.data = data;
+          reject(error);
+        };
+        xhr.onerror = function () {
+          if (NS.emit) { NS.emit("api-offline"); }
+          fail(new Error(
+            "Keine Verbindung zum Server. Bitte später erneut versuchen."
+          ));
+        };
+        xhr.onabort = function () { /* handled by the abort listener */ };
+        xhr.send(formData);
+      });
+    },
+
     postJson: function (path, payload, options) {
       options = options || {};
       var h = headers(options.headers);

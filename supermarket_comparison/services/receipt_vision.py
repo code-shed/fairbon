@@ -354,10 +354,10 @@ async def _call_gemini(
                 ]
             }
         ],
-        "generationConfig": {"temperature": 0.0},
+        "generationConfig": {"temperature": 0.0, "maxOutputTokens": 3000},
     }
     response = await httpx_client.post(
-        url, json=body, headers={"x-goog-api-key": api_key}, timeout=45.0
+        url, json=body, headers={"x-goog-api-key": api_key}, timeout=20.0
     )
     response.raise_for_status()
     payload = response.json()
@@ -381,6 +381,8 @@ async def _call_openai_compatible(
     body = {
         "model": model,
         "temperature": 0.0,
+        "max_tokens": 3000,
+        "reasoning_effort": "low",  # structured extraction needs no reasoning
         "messages": [
             {"role": "system", "content": _VISION_SYSTEM_PROMPT},
             {
@@ -399,7 +401,7 @@ async def _call_openai_compatible(
     headers = {"Authorization": f"Bearer {api_key}"}
     if extra_headers:
         headers.update(extra_headers)
-    response = await httpx_client.post(url, json=body, headers=headers, timeout=45.0)
+    response = await httpx_client.post(url, json=body, headers=headers, timeout=20.0)
     response.raise_for_status()
     payload = response.json()
     choices = payload.get("choices") or []

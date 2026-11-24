@@ -953,3 +953,43 @@ def test_legal_links_are_reachable_from_everywhere() -> None:
     assert html.count('href="./datenschutz"') >= 2
     assert 'class="settings-legal"' in html
     assert 'class="app-legal"' in html
+
+
+def test_scan_progress_and_cancellation_are_wired() -> None:
+    api = (FRONTEND / "js" / "api.js").read_text(encoding="utf-8")
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text(
+        encoding="utf-8"
+    )
+    progress = (FRONTEND / "js" / "components" / "scan-progress.js").read_text(
+        encoding="utf-8"
+    )
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+
+    assert "uploadForm: function" in api
+    assert "xhr.upload.onprogress" in api
+    assert "xhr.upload.onload" in api
+    assert 'error.name = "AbortError"' in api
+
+    assert "new global.AbortController()" in sheet
+    assert 'error.name = "AbortError"' in sheet
+    assert "NS.toast(\"Scan abgebrochen.\")" in sheet
+    assert "Datei wird lokal verkleinert & hochgeladen…" in sheet
+    assert "Bei Fotos dauert die Erkennung" in sheet
+    assert "Lokal erkannt in " in sheet and "Erkannt in " in sheet
+    assert "result.duration_ms" in sheet
+
+    assert 'id="scan-cancel"' in html and 'id="scan-duration"' in html
+    assert 'class="scan-progress-bar"' in progress or "scan-progress-bar" in progress
+    assert "prefers-reduced-motion" in css and "scan-indeterminate" in css
+
+
+def test_scan_cpu_steps_run_outside_the_event_loop() -> None:
+    source = (FRONTEND.parent / "supermarket_comparison" / "api" / "routes" / (
+        "receipts.py"
+    )).read_text(encoding="utf-8")
+
+    assert "asyncio.to_thread(sanitize, data)" in source
+    assert "asyncio.to_thread(pdf_page_images, data)" in source
+    assert "asyncio.to_thread(_ocr_page_receipt" in source
+    assert source.count("asyncio.to_thread(") >= 6

@@ -12,6 +12,7 @@
   var isDemo = false;      // demo mode: never share with the community
   var manualMode = false;  // manual entry: editors open, add-item button
   var progress = null;     // scan checklist controller
+  var activeScan = null;   // AbortController of the running upload
   var queue = [];          // receipts of a multi-page PDF, one preview each
   var queueIndex = 0;
   var queueSaved = 0;
@@ -32,6 +33,8 @@
     els.save = $("add-save");
     els.progressSection = $("scan-progress");
     els.progressBox = $("scan-checklist");
+    els.scanCancel = $("scan-cancel");
+    els.scanDuration = $("scan-duration");
     els.card = $("demo-receipt-card");
     els.badge = $("demo-badge");
     els.demoNote = $("demo-note");
@@ -58,6 +61,11 @@
 
     $("add-close").addEventListener("click", close);
     els.backdrop.addEventListener("click", close);
+    if (els.scanCancel) {
+      els.scanCancel.addEventListener("click", function () {
+        if (activeScan) { activeScan.abort(); }
+      });
+    }
     $("add-photo").addEventListener("click", function () {
       NS.platform.captureReceipt().then(function (file) {
         if (file) { scanFile(file, true); }
@@ -121,6 +129,11 @@
     els.error.hidden = true;
     els.error.textContent = "";
     els.progressSection.hidden = true;
+    if (els.scanCancel) { els.scanCancel.hidden = true; }
+    if (els.scanDuration) {
+      els.scanDuration.hidden = true;
+      els.scanDuration.textContent = "";
+    }
     els.card.hidden = true;
     els.card.textContent = "";
     els.badge.hidden = !isDemo;
@@ -144,8 +157,15 @@
   }
 
   function close() {
+    if (activeScan) { activeScan.abort(); }
     els.modal.hidden = true;
     els.backdrop.hidden = true;
+  }
+
+  function abortedError() {
+    var error = new Error("Scan abgebrochen.");
+    error.name = "AbortError";
+    return error;
   }
 
   function showError(message) {
@@ -231,6 +251,50 @@
   function scanFile(file, isImage) {
     resetError();
     setTilesDisabled(true);
+    var controller = global.AbortController ? new global.AbortController() : null;
+    activeScan = controller;
+    var filename = file.name || "receipt";
+    var isText = !isImage && /\.(txt|text)$/i.test(filename);
+    var labelPrepare = isImage
+      ? "Datei wird lokal verkleinert & hochgeladen…"
+      : "Datei wird vorbereitet & hochgeladen…";
+    var waitLabel = isText || /\.pdf$/i.test(filename)
+      ? "Kassenbon wird ausgelesen…"
+      : "Kassenbon wird ausgelesen… Bei Fotos dauert die Erkennung "
+        + "meist 3–8 Sekunden – bitte kurz warten.";
+    var uploaded = false;
+
+    els.progressSection.hidden = false;
+    els.card.hidden = true;
+    progress = NS.components.scanProgress.create(els.progressBox, [
+      labelPrepare,
+      waitLabel,
+      "Artikel & Kategorien werden geprüft…",
+      "Summe geprüft"
+    ]);
+    progress.start();
+    progress.bar(0.02);
+    if (els.scanCancel) { els.scanCancel.hidden = false; }
+    if (els.scanDuration) {
+      els.scanDuration.hidden = true;
+      els.scanDuration.textContent = "";
+    }
+
+    function afterUpload() {
+      if (uploaded) { return; }
+      uploaded = true;
+      progress.complete(0, "Datei hochgeladen");
+      progress.running(1, waitLabel);
+      progress.bar(null);  // indeterminate while the server reads the receipt
+    }
+
+    function finishUi() {
+      activeScan = null;
+      progress = null;
+      if (els.scanCancel) { els.scanCancel.hidden = true; }
+      setTilesDisabled(false);
+    }
+
     var prepare = isImage
       ? NS.platform.compressImage(
           file, undefined, undefined, NS.state.docEnhance !== false
@@ -238,23 +302,23 @@
       : Promise.resolve(file);
 
     prepare.then(function (payload) {
-      els.progressSection.hidden = false;
-      els.card.hidden = true;
-      progress = NS.components.scanProgress.create(els.progressBox, [
-        "Markt & Datum erkannt",
-        "Artikel ausgelesen & kategorisiert",
-        "Rabatte, Pfand & MwSt. (7 % / 19 %) zugeordnet",
-        "Summe geprüft"
-      ]);
-      progress.start();
+      if (controller && controller.signal.aborted) { throw abortedError(); }
       var form = new FormData();
-      form.append("file", payload, payload.name || "receipt");
+      form.append("file", payload, payload.name || filename);
       if (global.FAIRBON_TURNSTILE_TOKEN) {
         form.append("turnstile_token", global.FAIRBON_TURNSTILE_TOKEN);
       }
-      return NS.api.postForm("/api/v1/receipts/scan", form);
+      return NS.api.uploadForm("/api/v1/receipts/scan", form, {
+        signal: controller ? controller.signal : null,
+        onProgress: function (fraction) {
+          progress.running(0, labelPrepare + " " + Math.round(fraction * 100) + " %");
+          progress.bar(fraction * 0.5);
+        },
+        onUploaded: afterUpload
+      });
     }).then(function (result) {
       resetError();
+      afterUpload();
       queue = result.receipts && result.receipts.length ? result.receipts : [];
       queueIndex = 0;
       queueSaved = 0;
@@ -262,38 +326,47 @@
       scanned = queue.length ? queue[0] : result;
       items = (scanned.items || []).map(copyItem);
       var check = sumCheck(scanned, items);
-      var steps = [
-        [0, null],
-        [1, items.length + " Artikel ausgelesen & kategorisiert"],
-        [2, null]
-      ];
-      var chain = Promise.resolve();
-      steps.forEach(function (step) {
-        chain = chain.then(function () {
-          return new Promise(function (resolve) {
-            global.setTimeout(function () {
-              progress.complete(step[0], step[1]);
-              resolve();
-            }, 120);
-          });
-        });
+      progress.complete(1, items.length + " Artikel ausgelesen & kategorisiert");
+      progress.bar(0.9);
+      var chain = new Promise(function (resolve) {
+        global.setTimeout(function () {
+          progress.complete(2);
+          resolve();
+        }, 120);
       });
       chain.then(function () {
-        return new Promise(function (resolve) {
-          global.setTimeout(resolve, 120);
-        });
-      }).then(function () {
         if (check.warning) {
           progress.warning(3, check.warning);
         } else {
           progress.complete(3, "Summe geprüft – stimmt auf den Cent");
         }
+        progress.finish();
+        if (els.scanDuration && typeof result.duration_ms === "number") {
+          var secs = result.duration_ms < 100
+            ? "< 0,1"
+            : (result.duration_ms / 1000).toFixed(1).replace(".", ",");
+          var local = result.method === "ebon_local"
+            || (!result.method && String(result.engine || "").indexOf("vision") < 0);
+          els.scanDuration.hidden = false;
+          els.scanDuration.textContent = (local ? "Lokal erkannt in " : "Erkannt in ")
+            + secs + " s";
+        }
         renderPreview(false);
-        setTilesDisabled(false);
+        finishUi();
       });
     }).catch(function (error) {
+      var cancelled = error && error.name === "AbortError";
+      activeScan = null;
+      progress = null;
+      if (els.scanCancel) { els.scanCancel.hidden = true; }
       setTilesDisabled(false);
-      showError(error.message || "Scan fehlgeschlagen.");
+      if (cancelled) {
+        els.progressSection.hidden = true;
+        showError("");
+        if (NS.toast) { NS.toast("Scan abgebrochen."); }
+      } else {
+        showError(error.message || "Scan fehlgeschlagen.");
+      }
     });
   }
 

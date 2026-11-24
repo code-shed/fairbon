@@ -16,8 +16,10 @@ opts in, and never carry the ``owner_token`` or the ``receipt_id``.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import re
+import time
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Final
 
@@ -29,6 +31,7 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
     UploadFile,
 )
 
@@ -170,7 +173,7 @@ async def _scan_upload(
             raise HTTPException(status_code=429, detail=reason)
 
     try:
-        cleaned = sanitize(data)
+        cleaned = await asyncio.to_thread(sanitize, data)
     except (UploadTooLarge, _UnsupportedReceipt, ImageSanitizeError) as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
 
@@ -273,7 +276,7 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
     if not allowed:
         raise HTTPException(status_code=429, detail=reason)
     try:
-        pages = pdf_page_images(data)
+        pages = await asyncio.to_thread(pdf_page_images, data)
     except PdfUnreadable as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not pages.jpeg_pages:
@@ -284,7 +287,7 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
     vision_pages: list[tuple[int, bytes]] = []
     ocr_candidates: dict[int, dict[str, Any]] = {}
     for number, jpeg in pages.jpeg_pages:
-        local = _ocr_page_receipt(jpeg, page=number)
+        local = await asyncio.to_thread(_ocr_page_receipt, jpeg, page=number)
         if local is None:
             vision_pages.append((number, jpeg))
         elif local.pop("ocr_review", False):
@@ -332,7 +335,7 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
     last_error = ""
     for number, jpeg in vision_pages:
         try:
-            cleaned = sanitize(jpeg)
+            cleaned = await asyncio.to_thread(sanitize, jpeg)
             result = await extract_with_vision(
                 cleaned, user_key=user_key or None, user_provider=provider
             )
@@ -370,12 +373,34 @@ async def _scan_pdf_pages(request: Request, *, data: bytes) -> dict[str, Any] | 
     }
 
 
+def _finish_scan(
+    response: Response,
+    payload: dict[str, Any],
+    started: float,
+) -> dict[str, Any]:
+    """Add timing metadata without leaking keys, image data or user details."""
+
+    duration_ms = round((time.perf_counter() - started) * 1000)
+    engine = str(payload.get("engine") or "")
+    provider = str(payload.get("provider") or "")
+    method = (
+        "vision"
+        if "vision" in engine or (provider and provider != "tesseract")
+        else "ebon_local"
+    )
+    response.headers["Server-Timing"] = (
+        f"total;dur={duration_ms}, method;desc={method}"
+    )
+    return {**payload, "duration_ms": duration_ms, "method": method}
+
+
 @router.post(
     "/scan",
     summary="Vorschau eines Kassenbon-Scans (ohne Speichern)",
 )
 async def scan_receipt(
     request: Request,
+    response: Response,
     repository: Annotated[Repository, Depends(get_repository)],
     file: UploadFile,
     turnstile_token: Annotated[str, Form()] = "",
@@ -390,6 +415,7 @@ async def scan_receipt(
 
     from ...services.turnstile import verify_turnstile
 
+    started = time.perf_counter()
     if not await verify_turnstile(
         turnstile_token or None, remote_ip=client_ip(request)
     ):
@@ -410,13 +436,20 @@ async def scan_receipt(
     # never reach a paid vision provider).
     if is_plain_text(data, file.content_type, file.filename):
         try:
-            extraction = extract_text(
-                data, filename=file.filename or "", content_type="text/plain"
+            extraction = await asyncio.to_thread(
+                extract_text,
+                data,
+                filename=file.filename or "",
+                content_type="text/plain",
             )
         except OcrUnavailable as exc:  # pragma: no cover - no OCR for text
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        payload = _text_scan_payload(parse_receipt_text(extraction.text))
-        return {**payload, "engine": extraction.engine}
+        payload = _text_scan_payload(
+            await asyncio.to_thread(parse_receipt_text, extraction.text)
+        )
+        return _finish_scan(
+            response, {**payload, "engine": extraction.engine}, started
+        )
 
     result = await _scan_upload(
         request,
@@ -427,26 +460,33 @@ async def scan_receipt(
     )
 
     if result is not None:
-        return result
+        return _finish_scan(response, result, started)
 
     # eBon / PDF / text path (0 € API costs)
     try:
-        extraction = extract_text(
-            data, filename=file.filename or "", content_type=file.content_type or ""
+        extraction = await asyncio.to_thread(
+            extract_text,
+            data,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
         )
     except _UnsupportedReceipt as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except OcrUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    payload = parse_receipt_text(extraction.text).as_dict()
+    payload = (
+        await asyncio.to_thread(parse_receipt_text, extraction.text)
+    ).as_dict()
     if extraction.engine == "pdf" and not payload.get("items"):
         scanned = await _scan_pdf_pages(request, data=data)
         if scanned is not None:
-            return scanned
+            return _finish_scan(response, scanned, started)
         if not extraction.text.strip():
             payload["warnings"] = [*payload.get("warnings", []), NO_TEXT_LAYER_WARNING]
-    return {**payload, "engine": extraction.engine}
+    return _finish_scan(
+        response, {**payload, "engine": extraction.engine}, started
+    )
 
 
 @router.get("", summary="Eigene Kassenbons auflisten")
