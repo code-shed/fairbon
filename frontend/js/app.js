@@ -51,6 +51,7 @@
     var backdrop = $("settings-backdrop");
     var country = $("settings-country");
     var budget = $("settings-budget");
+    var budgetStart = $("settings-budget-start");
     var byok = $("settings-byok");
     var byokProvider = $("settings-byok-provider");
     var share = $("settings-share");
@@ -90,6 +91,7 @@
     function syncLabels() {
       country.value = NS.state.country || "DE";
       budget.value = NS.state.budget ? String(NS.state.budget) : "";
+      budgetStart.value = String(NS.state.budgetStart || 1);
       byok.value = NS.state.byok || "";
       byokProvider.value = NS.state.byokProvider || "openai_compatible";
       share.checked = NS.state.shareOptin === true;
@@ -121,6 +123,13 @@
     budget.addEventListener("change", function () {
       NS.state.budget = Math.max(0, Number(budget.value) || 0);
       NS.storage.set("fairbon.budget", NS.state.budget);
+      NS.emit("receipts-changed");
+    });
+    budgetStart.addEventListener("change", function () {
+      var day = Math.max(1, Math.min(28, Number(budgetStart.value) || 1));
+      NS.state.budgetStart = day;
+      budgetStart.value = String(day);
+      NS.storage.set("fairbon.budget_start", day);
       NS.emit("receipts-changed");
     });
     byok.addEventListener("change", function () {

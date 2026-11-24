@@ -143,6 +143,7 @@
           <span class="donut-sub" id="overview-budget-hint">Ausgaben</span>
         </div>
       </div>
+      <div class="ring-indicator" id="ring-indicator" aria-hidden="true">● ○</div>
       <div class="stat-row">
         <div class="stat"><span class="stat-label">Ø / Bon</span><strong id="overview-average">0&nbsp;€</strong></div>
         <div class="stat"><span class="stat-label">Bons</span><strong id="overview-count">0</strong></div>
@@ -157,7 +158,9 @@
     </section>
 
     <section class="card demo-card" id="demo-card" hidden>
+      <div class="empty-ring" aria-hidden="true"></div>
       <h2>Noch keine Bons?</h2>
+      <p class="detail-note" id="overview-empty-hint">Noch keine Ausgaben in diesem Zeitraum.</p>
       <p class="detail-note">Teste FairBon mit einem realistischen Beispiel-Bon – ohne Kamera, ohne API-Kosten.</p>
       <button type="button" class="secondary" id="demo-receipt-cta">Nur zum Testen? Beispiel-Bon ausprobieren</button>
       <button type="button" class="primary add-cta" id="add-receipt-cta">+ Bon erfassen</button>
@@ -418,6 +421,9 @@
     </label>
     <label class="field">Monatsbudget (optional, €)
       <input type="number" id="settings-budget" min="0" step="1" placeholder="z. B. 250">
+    </label>
+    <label class="field">Budgetbeginn (Tag des Monats, 1–28)
+      <input type="number" id="settings-budget-start" min="1" max="28" step="1" placeholder="z. B. 25 (Gehaltstag)">
     </label>
     <label class="switch" for="settings-share">
       <input type="checkbox" id="settings-share" checked>

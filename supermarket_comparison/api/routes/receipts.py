@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import re
+from datetime import date
 from typing import Annotated, Any, Final
 
 from fastapi import (
@@ -35,6 +36,7 @@ from ...config import get_settings
 from ...normalization.categories import RECEIPT_CATEGORIES, normalize_category
 from ...normalization.matcher import normalize_title
 from ...services.barcode import is_ambiguous_term, lookup_barcode
+from ...services.budget import budget_period
 from ...services.pdf_pages import MAX_PDF_PAGES, PdfUnreadable, pdf_page_images
 from ...services.rate_limit import allow_scan, client_ip, scan_daily_global
 from ...services.receipt_import import OcrUnavailable, extract_text, try_ocr_page
@@ -429,17 +431,28 @@ async def receipt_stats(
     request: Request,
     repository: Annotated[Repository, Depends(get_repository)],
     month: str = "",
+    start_day: Annotated[int, Query(ge=1, le=28)] = 1,
 ) -> dict[str, Any]:
-    """Monthly totals and category breakdown for the overview tab."""
+    """Totals for the budget period plus all calendar months for navigation."""
 
     owner_token = _owner_token(request)
     receipts = repository.user_receipts_for(owner_token)
+
+    period_month = month or date.today().strftime("%Y-%m")
+    try:
+        year, period_number = (int(part) for part in period_month.split("-")[:2])
+    except (TypeError, ValueError):
+        today = date.today()
+        year, period_number = today.year, today.month
+    period_start, period_end = budget_period(year, period_number, start_day)
+    low, high = period_start.isoformat(), period_end.isoformat()
 
     by_month: dict[str, int] = {}
     categories: dict[str, int] = {}
     shared_count = 0
     selected_total = 0
     selected_count = 0
+    discount_total = 0
 
     for receipt in receipts:
         receipt_month = str(receipt["receipt_date"] or "")[:7]
@@ -447,11 +460,13 @@ async def receipt_stats(
         by_month[receipt_month] = by_month.get(receipt_month, 0) + total
         if int(receipt["shared_to_community"] or 0):
             shared_count += 1
-        if month and receipt_month != month:
+        receipt_date = str(receipt["receipt_date"] or "")
+        if not receipt_date or not (low <= receipt_date <= high):
             continue
         selected_total += total
         selected_count += 1
         for item in repository.user_receipt_items_for(int(receipt["id"])):
+            discount_total += int(item["discount_cents"] or 0)
             if item["is_private"]:
                 continue
             category = str(item["category"] or "Sonstiges")
@@ -464,7 +479,9 @@ async def receipt_stats(
 
     return {
         "month": month or (months[0] if months else ""),
+        "period": {"from": low, "to": high, "start_day": start_day},
         "total_cents": selected_total,
+        "discount_cents": discount_total,
         "receipt_count": selected_count,
         "average_cents": average,
         "shared_count": shared_count,

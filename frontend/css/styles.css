@@ -1350,3 +1350,15 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 .ean-modal .field input { min-height: 44px; font-size: 1.05rem; letter-spacing: .04em; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 .modal-actions button { min-height: 44px; }
+
+
+/* --- Budget ring modes & empty state (Phase B) ------------------------- */
+.ring-indicator {
+  text-align: center; color: var(--muted); font-size: .8rem;
+  letter-spacing: .35em; margin: -4px 0 8px; min-height: 20px;
+}
+.empty-ring {
+  width: 84px; height: 84px; margin: 4px auto 12px;
+  border-radius: 50%; border: 8px solid var(--surface-alt);
+  border-top-color: var(--accent); transform: rotate(-35deg);
+}

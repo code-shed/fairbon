@@ -332,6 +332,24 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_dynamic_budget_ring_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    css = (FRONTEND / "css" / "styles.css").read_text()
+    state = (FRONTEND / "js" / "state.js").read_text()
+    overview = (FRONTEND / "js" / "views" / "overview.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+
+    assert 'id="settings-budget-start"' in html
+    assert "fairbon.budget_start" in state and "budgetStart" in app
+    assert "start_day=" in overview
+    assert "ringMode" in overview and "toggleRingMode" in overview
+    assert "#d99b26" in overview and "#d64545" in overview
+    assert " / Tag" in overview and "Ersparnis durch Rabatte" in overview
+    assert 'id="ring-indicator"' in html
+    assert 'id="overview-empty-hint"' in html
+    assert "empty-ring" in css
+
+
 def test_barcode_quick_scan_flow_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     platform = (FRONTEND / "js" / "platform.js").read_text()
@@ -407,7 +425,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v17" in sw
+    assert "fairbon-v18" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

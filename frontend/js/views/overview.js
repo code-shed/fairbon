@@ -8,6 +8,9 @@
   var months = [];
   var monthIndex = 0;
   var loaded = false;
+  var ringMode = "budget";
+  var lastMonth = "";
+  var lastData = null;
 
   function $(id) { return document.getElementById(id); }
 
@@ -24,12 +27,24 @@
     els.status = $("overview-status");
     els.statusText = $("overview-status-text");
     els.retry = $("overview-retry");
+    els.ringIndicator = $("ring-indicator");
+    els.emptyHint = $("overview-empty-hint");
     if (!els.label) { return; }
 
     els.empty.hidden = true;
     els.retry.addEventListener("click", load);
     $("month-prev").addEventListener("click", function () { shiftMonth(1); });
     $("month-next").addEventListener("click", function () { shiftMonth(-1); });
+    if (els.donut) {
+      els.donut.style.cursor = "pointer";
+      els.donut.setAttribute("role", "button");
+      els.donut.setAttribute("tabindex", "0");
+      els.donut.setAttribute("aria-label", "Ringansicht wechseln");
+      els.donut.addEventListener("click", toggleRingMode);
+      els.donut.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") { toggleRingMode(); }
+      });
+    }
 
     NS.on("receipts-changed", load);
     load();
@@ -47,7 +62,8 @@
 
   function load() {
     if (!loaded) { showStatus("Übersicht wird geladen …", false); }
-    NS.api.get("/api/v1/receipts/stats")
+    NS.api.get("/api/v1/receipts/stats?start_day=" +
+      encodeURIComponent(NS.state.budgetStart || 1))
       .then(function (data) {
         loaded = true;
         months = (data.by_month || []).map(function (entry) { return entry.month; });
@@ -81,13 +97,35 @@
     return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
   }
 
+  function toggleRingMode() {
+    ringMode = ringMode === "budget" ? "savings" : "budget";
+    if (lastMonth) { render(lastMonth, lastData); }
+  }
+
+  function shortDate(iso) {
+    var parts = String(iso || "").split("-");
+    return parts.length === 3
+      ? parts[2] + "." + parts[1] + "." + parts[0].slice(2)
+      : String(iso || "");
+  }
+
+  function daysLeft(iso) {
+    if (!iso) { return 1; }
+    var end = new Date(iso + "T23:59:59");
+    var now = new Date();
+    return Math.max(1, Math.ceil((end - now) / 86400000));
+  }
+
   function render(month, data) {
+    lastMonth = month;
+    lastData = data;
     var entry = null;
     (data && data.by_month || []).forEach(function (row) {
       if (row.month === month) { entry = row; }
     });
     if (!data) {
-      NS.api.get("/api/v1/receipts/stats?month=" + encodeURIComponent(month))
+      NS.api.get("/api/v1/receipts/stats?month=" + encodeURIComponent(month) +
+        "&start_day=" + encodeURIComponent(NS.state.budgetStart || 1))
         .then(function (fresh) { render(month, fresh); })
         .catch(function (error) {
           showStatus("Monat konnte nicht geladen werden. " + (error.message || ""), true);
@@ -95,11 +133,16 @@
       return;
     }
     hideStatus();
-    els.label.textContent = NS.formatMonth(month);
+    var period = data.period || {};
+    els.label.textContent = period.from && period.to
+      ? shortDate(period.from) + " – " + shortDate(period.to)
+      : NS.formatMonth(month);
 
     var demoCard = $("demo-card");
     if (demoCard) {
-      demoCard.hidden = (data.by_month || []).length > 0;
+      var empty = (data.receipt_count || 0) === 0;
+      demoCard.hidden = !empty;
+      if (els.emptyHint) { els.emptyHint.hidden = !empty; }
     }
 
     var total = data.total_cents || 0;
@@ -109,19 +152,33 @@
     els.shared.textContent = String(data.shared_count || 0);
 
     var budget = Number(NS.state.budget) || 0;
-    if (budget > 0) {
-      var ratio = Math.min(1, total / 100 / budget);
-      els.budgetHint.textContent = Math.round(ratio * 100) + " % von " + euro.format(budget);
-      drawDonut(ratio, ratio >= 1);
+    var savings = (data.discount_cents || 0) / 100;
+    if (ringMode === "savings") {
+      var savedRatio = Math.min(1, budget > 0 ? savings / budget : (total > 0 ? savings / (total / 100) : 0));
+      els.budgetHint.textContent = "Ersparnis durch Rabatte · " + euro.format(savings);
+      drawDonut(total > 0 || savings > 0 ? Math.max(0.04, savedRatio) : 0.04, "var(--accent)");
+    } else if (budget > 0) {
+      var remainingCents = Math.max(0, Math.round(budget * 100) - total);
+      var remaining = remainingCents / 100;
+      var ratio = remainingCents / (budget * 100);
+      var colour = ratio > 0.3 ? "var(--accent)"
+        : ratio >= 0.1 ? "#d99b26" : "#d64545";
+      var perDay = remaining / daysLeft(period.to);
+      els.budgetHint.textContent = "Noch " + euro.format(remaining) +
+        " übrig · ca. " + euro.format(perDay) + " / Tag";
+      drawDonut(Math.min(1, Math.max(0, ratio)), colour);
     } else {
       els.budgetHint.textContent = "Ausgaben";
-      drawDonut(total > 0 ? 0.72 : 0.04, false);
+      drawDonut(total > 0 ? 0.72 : 0.04, "var(--accent)");
+    }
+    if (els.ringIndicator) {
+      els.ringIndicator.textContent = ringMode === "budget" ? "● ○" : "○ ●";
     }
 
     renderCategories(data.categories || [], total);
   }
 
-  function drawDonut(ratio, overBudget) {
+  function drawDonut(ratio, colour) {
     var svg = els.donut;
     if (!svg) { return; }
     svg.textContent = "";
@@ -140,7 +197,7 @@
     value.setAttribute("class", "value");
     value.setAttribute("stroke-dasharray", String(c));
     value.setAttribute("stroke-dashoffset", String(c * (1 - Math.max(0, Math.min(1, ratio)))));
-    if (overBudget) { value.style.stroke = "var(--danger)"; }
+    if (colour) { value.style.stroke = colour; }
     svg.appendChild(value);
   }
 
