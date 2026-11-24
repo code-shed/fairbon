@@ -44,18 +44,29 @@ def _address_lines(value: str) -> list[str]:
 
 
 def _vision_provider_name() -> str:
+    """Human-readable provider name — never a raw developer identifier."""
+
     settings = get_settings()
-    if settings.privacy_vision_provider:
-        return _esc(settings.privacy_vision_provider)
+    configured = (settings.privacy_vision_provider or "").strip()
+    known = {
+        "gemini": "Google Gemini API",
+        "mistral": "Mistral AI API",
+    }
+    if configured.lower() in known:
+        return known[configured.lower()]
+    if configured:
+        return _esc(configured)
     names: list[str] = []
     for provider in (
         settings.vision_primary_provider,
         settings.vision_fallback_provider,
     ):
-        label = _PROVIDER_LABELS.get((provider or "").strip().lower(), provider)
+        label = known.get((provider or "").strip().lower())
         if label and label not in names:
-            names.append(_esc(label))
-    return " und ".join(names) if names else "ein konfigurierter Vision-Anbieter"
+            names.append(label)
+    if names:
+        return " und ".join(names)
+    return "den vom Instanz-Betreiber konfigurierten Vision-API-Anbieter"
 
 
 def _operator() -> str:
@@ -133,29 +144,66 @@ async def impressum() -> HTMLResponse:
 @router.get("/datenschutz", include_in_schema=False)
 async def datenschutz() -> HTMLResponse:
     settings = get_settings()
-    hoster = _esc(settings.privacy_hoster or "der Betreiber dieser Instanz")
+    if settings.privacy_hoster:
+        hoster = (
+            f"Diese Instanz wird technisch von {_esc(settings.privacy_hoster)} "
+            "gehostet; soweit zutreffend erfolgt die Auftragsverarbeitung "
+            "gemäß Art. 28 DSGVO."
+        )
+    else:
+        hoster = "Diese Instanz wird von der jeweils verantwortlichen Person gehostet."
+
+    retention = _esc(settings.privacy_log_retention)
     vision = _vision_provider_name()
+    if settings.privacy_vision_provider_details:
+        vision_details = (
+            "Angaben des Anbieters: "
+            + _esc(settings.privacy_vision_provider_details)
+            + "."
+        )
+    else:
+        vision_details = (
+            "Verarbeitungsland, etwaige Drittlandübermittlungen und "
+            "Speicherfristen richten sich nach den Bedingungen des jeweils "
+            "eingesetzten Anbieters."
+        )
     contact = _contact_email()
     contact_html = (
         f'<a href="mailto:{contact}">{contact}</a>'
         if contact
         else "die im Impressum genannten Kontaktdaten"
     )
-    sharing = (
-        "Bei aktiver kostenloser Nutzung ohne eigenen API-Key sind anonymisierte "
-        "Preise automatisch Bestandteil des Angebots."
-        if settings.require_community_sharing
-        else "Das Teilen ist vollständig freiwillig (Opt-in) und erfolgt nur, "
-        "wenn du es ausdrücklich aktivierst."
-    )
+    if settings.require_community_sharing:
+        sharing = (
+            "Bei aktiver kostenloser Nutzung ohne eigenen API-Key sind "
+            "anonymisierte Preise automatisch Bestandteil des Angebots; "
+            "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO "
+            "(Vertragserfüllung bzw. berechtigtes Interesse an einem "
+            "offenen, kostenlosen Preisvergleich)."
+        )
+    else:
+        sharing = (
+            "Das Teilen ist vollständig freiwillig und erfolgt ausschließlich "
+            "nach ausdrücklichem Opt-in; Rechtsgrundlage ist Art. 6 Abs. 1 "
+            "lit. a DSGVO (Einwilligung)."
+        )
     turnstile = ""
     if settings.turnstile_site_key:
         turnstile = """
-    <h2>Cloudflare Turnstile</h2>
+    <h2>Cloudflare Turnstile (nur auf dieser Instanz aktiv)</h2>
     <p>Zum Schutz vor Bot-Missbrauch wird beim Scannen Cloudflare Turnstile
-      eingesetzt. Dabei werden technische Verbindungsdaten an Cloudflare
-      übertragen. Es werden keine Werbe- oder Analyse-Cookies gesetzt.</p>
+      eingesetzt. Dabei werden technische Verbindungsdaten (u. a. IP-Adresse
+      und Browserkennung) an Cloudflare übertragen; Rechtsgrundlage ist
+      Art. 6 Abs. 1 lit. f DSGVO (Missbrauchsschutz). Es werden keine Werbe-
+      oder Analyse-Cookies gesetzt.</p>
     """
+    authority = ""
+    if settings.privacy_supervisory_authority:
+        authority = (
+            "Zuständig ist insbesondere: "
+            + _esc(settings.privacy_supervisory_authority)
+            + "."
+        )
     body = f"""
     <h1>Datenschutzerklärung</h1>
     <p>Informationen gemäß Art. 13 DSGVO. Diese Erklärung passt sich der
@@ -163,54 +211,86 @@ async def datenschutz() -> HTMLResponse:
 
     <h2>1. Verantwortlicher</h2>
     {_operator()}
-    <p>Kontakt: {contact_html}</p>
+    <p>Kontakt für Datenschutzanfragen: {contact_html}</p>
 
     <h2>2. Kein Account, kein Tracking, keine Werbe-Cookies</h2>
     <p>FairBon kommt ohne Registrierung, ohne Analyse- und Werbe-Cookies und
-      ohne Nutzer-Tracking aus. Folgende Daten liegen ausschließlich lokal in
-      deinem Browser (localStorage) und sind technisch notwendig, damit die App
-      funktioniert: der anonyme Gast-Token (Zugriff auf deine Bons), Budget und
-      Budgetbeginn, Merkliste, Postleitzahl, Darstellungs-Einstellungen sowie –
-      falls du ihn selbst hinterlegst – dein eigener Vision-API-Key. Diese
-      Speicherung ist nach § 25 Abs. 2 Nr. 2 TDDDG zulässig; ein Cookie-Banner
-      ist daher nicht erforderlich.</p>
+      ohne Nutzer-Tracking aus. Für die ausdrücklich gewünschte App-Funktion
+      werden folgende Werte ausschließlich im <code>localStorage</code> deines
+      Browsers gespeichert: der anonyme <code>owner_token</code> (Zuordnung der eigenen
+      Bons ohne Benutzerkonto), die gewählte Postleitzahl, Merkliste und
+      Einkaufszettel, das lokale Monatsbudget sowie Erscheinungsbild und
+      weitere Einstellungen. Diese Speicherung ist technisch zwingend
+      erforderlich und nach § 25 Abs. 2 Nr. 2 TDDDG zulässig – ein
+      Tracking-/Einwilligungs-Cookie-Banner ist daher nicht erforderlich.</p>
+    <p><strong>Optionaler eigener API-Key (BYOK):</strong> Hinterlegst du
+      freiwillig einen eigenen Vision-API-Key, wird er ausschließlich in deinem
+      Browser gespeichert und nur bei aktiv ausgelösten Foto-Scans als Request-
+      Header (<code>X-User-Vision-Key</code>) an das Backend übergeben. Der
+      Server speichert und protokolliert den Key nicht. Du kannst ihn jederzeit
+      in den Einstellungen entfernen oder durch Löschen der Website-Daten
+      deines Browsers. Verantwortung für Auswahl und Bedingungen des externen
+      Anbieters trägst in diesem Fall du.</p>
 
     <h2>3. Hosting &amp; Server-Protokolle</h2>
-    <p>Diese Instanz wird gehostet von {hoster}. Beim Aufruf der Website werden
-      kurzzeitig technische Zugriffsdaten verarbeitet (u. a. IP-Adresse,
-      Zeitpunkt, abgerufene Seite), um die Auslieferung zu ermöglichen und den
-      Missbrauchs- sowie Rate-Limit-Schutz zu betreiben.</p>
+    <p>{hoster}</p>
+    <p>Beim Aufruf werden technische Zugriffsdaten verarbeitet: IP-Adresse,
+      Zeitstempel, abgerufene URL, HTTP-Statuscode und User-Agent. Zweck ist
+      die sichere Auslieferung der Web-App, Fehleranalyse sowie Missbrauchs-
+      und DoS-Schutz (Rate-Limiting). Rechtsgrundlage ist Art. 6 Abs. 1
+      lit. f DSGVO (berechtigtes Interesse an sicherem und stabilem Betrieb).
+      Die Speicherdauer beträgt {retention}; danach werden die Daten
+      automatisch gelöscht oder anonymisiert, sofern keine sicherheitsrelevante
+      Aufklärung erforderlich ist.</p>
 
     <h2>4. Kassenbon-Erfassung &amp; KI-Verarbeitung</h2>
     <p><strong>eBon-PDF, Text und manuelle Eingabe:</strong> Diese Daten werden
-      zu 100 % lokal auf dem Server verarbeitet – ohne externe KI-API.</p>
-    <p><strong>Papier-Foto-Scan (optional):</strong> Das Bild wird bereits im
-      Browser verkleinert und in Graustufen umgewandelt. Serverseitig erfolgen
-      Magic-Byte-Prüfung und Entfernung von EXIF-/GPS-Metadaten ausschließlich
-      im Arbeitsspeicher. Anschließend wird das Bild kurzzeitig an
-      {vision} übertragen (bei eigenem API-Key direkt über deinen Schlüssel)
-      und sofort nach der Auswertung verworfen – ohne Speicherung auf der
-      Festplatte. Zahlungs-, EC- und TSE-Daten sowie genaue Uhrzeiten werden
-      nicht gespeichert.</p>
+      ausschließlich auf dem Server dieser Instanz ohne Weitergabe an externe
+      KI-Anbieter verarbeitet (lokaler PDF-/Textparser).</p>
+    <p><strong>Papier-Foto-Scan (optional):</strong> Das im Browser verkleinerte
+      und in Graustufen umgewandelte Bild wird serverseitig im Arbeitsspeicher
+      geprüft, von EXIF-/GPS-Metadaten befreit, zur Texterkennung an
+      {vision} übermittelt und nach Abschluss der Auswertung verworfen (keine
+      dauerhafte Speicherung des Belegfotos durch FairBon). Rechtsgrundlage ist
+      Art. 6 Abs. 1 lit. b DSGVO (Durchführung der von dir aktiv ausgelösten
+      Belegauswertung). Übermittelt wird das bereinigte Belegfoto. {vision_details}
+      Zahlungs-, EC- und TSE-Daten sowie genaue Uhrzeiten werden nicht
+      gespeichert.</p>
 
     <h2>5. Anonyme Community-Preise</h2>
-    <p>Preise aus Supermärkten, Discountern und Drogerien (Kategorien
-      Lebensmittel, Getränke, Drogerie, Haushalt) können in den offenen
-      Preisvergleich fließen. Sie werden vollständig ohne owner_token, ohne
-      receipt_id und ohne Personenbezug gespeichert. {sharing}</p>
+    <p>Gespeichert werden ausschließlich Produktbezeichnung/EAN, Preis,
+      Handelskette, PLZ-Region und Datum – ohne <code>owner_token</code>, ohne
+      <code>receipt_id</code> (kein verknüpfter Gesamt-Warenkorb), ohne genaue
+      Uhrzeit und ohne Zahlungsdaten. Erfasst werden nur die
+      preisvergleichsrelevanten Kategorien Lebensmittel, Getränke, Drogerie und
+      Haushalt, um Rückschlüsse auf einzelne Personen zu vermeiden. {sharing}</p>
 
     <h2>6. Externe Schnittstellen &amp; Quellen</h2>
-    <p>Für den optionalen Barcode-/EAN-Abgleich und Produktbilder werden Open
-      Food Facts / Open Prices genutzt (Daten unter ODbL-Lizenz; Quellenhinweis
-      bei den Produktangaben). Diese Abfragen erfolgen nur, wenn du die
-      entsprechenden Funktionen verwendest.</p>
+    <p><strong>Serverseitige EAN-/Preisabfragen:</strong> Für Barcode-Abgleich
+      und Community-Preise fragt der FairBon-Server Open Food Facts / Open
+      Prices ab. Übermittelt werden EAN bzw. Suchbegriff sowie die IP-Adresse
+      des Servers – nicht deine IP-Adresse.</p>
+    <p><strong>Produktbilder:</strong> Werden Bilder direkt im Browser von Open
+      Food Facts geladen, übermittelt der Browser technisch bedingt deine
+      IP-Adresse und übliche Request-Daten. Zweck ist die Anzeige frei
+      lizenzierter Produktbilder, Rechtsgrundlage Art. 6 Abs. 1 lit. f DSGVO.
+      Die Daten stehen unter der ODbL-Lizenz; ein Quellenhinweis erscheint bei
+      den Produktangaben.</p>
     {turnstile}
 
     <h2>7. Deine Rechte</h2>
     <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung
-      der Verarbeitung und Widerspruch. Eigene Bons und lokal gespeicherte Daten
-      kannst du jederzeit direkt in der App löschen. Außerdem besteht ein
-      Beschwerderecht bei einer zuständigen Datenschutzaufsichtsbehörde.</p>
+      der Verarbeitung, Widerspruch und Datenübertragbarkeit. Richte deine
+      Anfrage bitte an {contact_html}. Da FairBon ohne Benutzerkonten arbeitet,
+      kannst du eigene Belege und lokal gespeicherte Daten jederzeit direkt in
+      der App löschen oder exportieren. Für Anfragen an den Betreiber wird
+      ggf. dein eigener anonymer <code>owner_token</code> benötigt. Bereits
+      anonymisierte Community-Einzelpreise lassen sich mangels Personenbezug
+      nachträglich keiner einzelnen Person mehr zuordnen (Art. 11 DSGVO).</p>
+    <p>Du hast das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu
+      beschweren (Art. 77 DSGVO) – insbesondere an deinem gewöhnlichen
+      Aufenthaltsort, deinem Arbeitsplatz oder am Sitz des Verantwortlichen.
+      {authority}</p>
     <p>Weitere Angaben findest du im <a href="./impressum">Impressum</a>.</p>
     """
     return _page("Datenschutz", body)

@@ -34,6 +34,9 @@ _ENV_ALIASES: Final[dict[str, str]] = {
     "privacy_hoster": "PRIVACY_HOSTER",
     "privacy_vision_provider": "PRIVACY_VISION_PROVIDER",
     "privacy_contact_email": "PRIVACY_CONTACT_EMAIL",
+    "privacy_log_retention": "PRIVACY_LOG_RETENTION",
+    "privacy_vision_provider_details": "PRIVACY_VISION_PROVIDER_DETAILS",
+    "privacy_supervisory_authority": "PRIVACY_SUPERVISORY_AUTHORITY",
     "max_upload_bytes": "MAX_UPLOAD_BYTES",
     "vision_primary_provider": "VISION_PRIMARY_PROVIDER",
     "vision_primary_api_key": "VISION_PRIMARY_API_KEY",
@@ -125,6 +128,9 @@ class Settings(BaseModel):
     privacy_hoster: str = ""
     privacy_vision_provider: str = ""  # empty -> derive from VISION_*_PROVIDER
     privacy_contact_email: str = ""  # empty -> fall back to imprint_email
+    privacy_log_retention: str = "in der Regel bis zu 7 Tage"
+    privacy_vision_provider_details: str = ""
+    privacy_supervisory_authority: str = ""
 
     standard_price_limit: int = 12
 
