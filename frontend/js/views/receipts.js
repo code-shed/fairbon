@@ -613,6 +613,7 @@
     button.disabled = true;
     NS.api.del("/api/v1/receipts/" + receiptId).then(function () {
       NS.demo.unmarkSaved(receiptId);
+      button.disabled = false;
       closeDetail();
       load();
       NS.emit("receipts-changed");

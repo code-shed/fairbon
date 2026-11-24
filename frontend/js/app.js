@@ -98,7 +98,7 @@
       { text: "PLZ / Region festlegen", key: "plz" },
       { text: "Ersten Artikel per Barcode verifizieren", key: "barcode" },
       { text: "Einkaufsliste im Tab Liste testen", key: "list" },
-      { text: "Gast-Token einmal sichern (Backup)", key: "token" }
+      { text: "Gast-Token kopieren (Zugriff merken)", key: "token" }
     ];
   }
 

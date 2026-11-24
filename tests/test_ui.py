@@ -562,7 +562,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v37" in sw
+    assert "fairbon-v38" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -877,3 +877,16 @@ def test_form_controls_follow_the_active_theme() -> None:
     assert 'input[type="password"]' in css
     assert ":root { color-scheme: light; }" in css
     assert ':root[data-theme="dark"] { color-scheme: dark; }' in css
+
+
+def test_delete_button_is_reused_and_token_wording_is_honest() -> None:
+    receipts = (FRONTEND / "js" / "views" / "receipts.js").read_text(encoding="utf-8")
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+
+    # After a successful delete the button must be usable again.
+    start = receipts.index("function deleteActive")
+    delete_fn = receipts[start:receipts.index("function download")]
+    assert delete_fn.count("button.disabled = false") >= 2  # success + error
+    assert "nicht die Bons selbst" in html
+    assert "Zugriff merken" in app
