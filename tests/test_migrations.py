@@ -120,3 +120,38 @@ def test_migrate_adds_is_business_column(tmp_path) -> None:
     }
     database.close()
     assert "is_business" in columns
+
+
+def test_migrate_normalizes_stored_categories(tmp_path) -> None:
+    from supermarket_comparison.storage import Repository
+
+    path = str(tmp_path / "categories.db")
+    database = Database(path)
+    conn = database._conn
+    conn.execute(
+        "INSERT INTO user_receipts (owner_token, store, postal_code,"
+        " country_code, currency, receipt_date, total_cents, created_at) VALUES"
+        " ('owner-token-1234', 'penny', '65618', 'DE', 'EUR', '2026-11-22', 100,"
+        " '2026-11-22T00:00:00')"
+    )
+    conn.execute(
+        "INSERT INTO user_receipt_items (receipt_id, raw_text, normalized_name,"
+        " category, price_cents) VALUES (1, 'Bier', 'Bier', 'Getraenke', 100)"
+    )
+    conn.execute(
+        "INSERT INTO receipt_aliases (store, raw_text_norm, normalized_name,"
+        " category, created_at, updated_at) VALUES"
+        " ('penny', 'bier', 'Bier', 'Getraenke', '2026-11-22', '2026-11-22')"
+    )
+    conn.commit()
+    database.close()
+
+    database = Database(path)  # idempotente Migration
+    repo = Repository(database)
+    items = repo.user_receipt_items_for(1)
+    aliases = database._conn.execute("SELECT category FROM receipt_aliases").fetchall()
+    aliases_category = aliases[0]["category"] if aliases else None
+    database.close()
+
+    assert items[0]["category"] == "Getränke"
+    assert aliases_category == "Getränke"

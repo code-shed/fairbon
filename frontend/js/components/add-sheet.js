@@ -578,12 +578,48 @@
     data.append("items_json", JSON.stringify(items));
 
     var demoFlag = isDemo;
+    checkDuplicate(
+      String(data.get("store") || ""),
+      String(data.get("receipt_date") || ""),
+      Number(data.get("total_cents") || 0)
+    ).then(function (duplicate) {
+      if (duplicate && !global.confirm(
+        "Ein Bon mit gleichem Händler, Datum und Betrag existiert bereits. " +
+        "Trotzdem speichern?"
+      )) { return; }
+      submitReceipt(data, demoFlag);
+    }).catch(function () {
+      // A failed duplicate check must never block saving.
+      submitReceipt(data, demoFlag);
+    });
+  }
+
+  function checkDuplicate(store, date, total) {
+    if (isDemo) { return Promise.resolve(false); }
+    return NS.api.get("/api/v1/receipts").then(function (receipts) {
+      return (receipts || []).some(function (receipt) {
+        return receipt.store === store &&
+          receipt.receipt_date === date &&
+          Number(receipt.total_cents) === total;
+      });
+    });
+  }
+
+  function submitReceipt(data, demoFlag) {
     els.save.disabled = true;
     NS.api.postForm("/api/v1/receipts", data).then(function (result) {
       if (demoFlag && result && result.receipt_id) {
         NS.demo.markSaved(result.receipt_id);
       }
       NS.emit("receipts-changed");
+      var receiptPlz = String((scanned && scanned.postal_code) || "").trim();
+      if (
+        /^[0-9]{4,5}$/.test(receiptPlz) &&
+        NS.storage.get("fairbon.plz_manual", false) !== true
+      ) {
+        NS.setPostalCode(receiptPlz);
+        NS.emit("plz-changed", receiptPlz);
+      }
       if (queueIndex + 1 < queue.length) {
         queueSaved += 1;
         els.save.disabled = false;

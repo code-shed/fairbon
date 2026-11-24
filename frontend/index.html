@@ -144,7 +144,7 @@
         </div>
       </div>
       <div class="stat-row">
-        <div class="stat"><span class="stat-label">Ø / Monat</span><strong id="overview-average">0&nbsp;€</strong></div>
+        <div class="stat"><span class="stat-label">Ø / Bon</span><strong id="overview-average">0&nbsp;€</strong></div>
         <div class="stat"><span class="stat-label">Bons</span><strong id="overview-count">0</strong></div>
         <div class="stat"><span class="stat-label">Geteilt</span><strong id="overview-shared">0</strong></div>
       </div>
@@ -160,9 +160,8 @@
       <h2>Noch keine Bons?</h2>
       <p class="detail-note">Teste FairBon mit einem realistischen Beispiel-Bon – ohne Kamera, ohne API-Kosten.</p>
       <button type="button" class="secondary" id="demo-receipt-cta">Nur zum Testen? Beispiel-Bon ausprobieren</button>
+      <button type="button" class="primary add-cta" id="add-receipt-cta">+ Bon erfassen</button>
     </section>
-
-    <button type="button" class="primary add-cta" id="add-receipt-cta">+ Bon erfassen</button>
   </section>
 
   <!-- Tab 2: Bons -->
@@ -440,8 +439,14 @@
     </label>
     <div class="settings-actions">
       <a class="secondary btn-link" href="/admin" target="_blank" rel="noopener">Admin</a>
+      <button type="button" class="secondary" id="settings-token-copy">Token kopieren</button>
       <button type="button" class="secondary" id="settings-reset">Gast-Token neu erzeugen</button>
     </div>
+    <label class="field">Gast-Token wiederherstellen (Geräte- oder Browserwechsel)
+      <input type="text" id="settings-token-restore" autocomplete="off" placeholder="Früheren Token einfügen">
+    </label>
+    <button type="button" class="secondary" id="settings-token-restore-btn">Token wiederherstellen</button>
+    <p class="detail-note" id="settings-token-feedback" role="status" hidden></p>
     <p class="detail-note">100 % Open Source · Community-Kassenbons (anonymisiert) · Alle Angaben ohne Gewähr · Kein Datenverkauf</p>
   </div>
 </div>

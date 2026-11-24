@@ -56,3 +56,23 @@ def test_band_for_other_group_is_wide() -> None:
 
 def test_band_for_unknown_group_falls_back() -> None:
     assert unit_price_band("does-not-exist") == unit_price_band("other")
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Getraenke", "Getränke"),
+        ("getränke", "Getränke"),
+        ("GETRÄNKE", "Getränke"),
+        ("Baecker/Gastronomie", "Bäcker/Gastronomie"),
+        ("Technik/Non-Food", "Technik/Non-Food"),
+        ("Lebensmittel", "Lebensmittel"),
+        ("Sonstiges", "Sonstiges"),
+        ("unbekannt", "Sonstiges"),
+        (None, "Sonstiges"),
+    ],
+)
+def test_normalize_receipt_category(raw: str | None, expected: str) -> None:
+    from supermarket_comparison.normalization.categories import normalize_category
+
+    assert normalize_category(raw) == expected

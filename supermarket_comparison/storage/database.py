@@ -86,6 +86,24 @@ class Database:
                 " INTEGER NOT NULL DEFAULT 0"
             )
 
+        # Normalise stored category spellings (Getraenke -> Getränke) in
+        # both receipt items and learned aliases; idempotent.
+        from ..normalization.categories import normalize_category
+
+        for table in ("user_receipt_items", "receipt_aliases"):
+            distinct = self._conn.execute(
+                f"SELECT DISTINCT category FROM {table} WHERE category IS NOT NULL"
+            ).fetchall()
+            for row in distinct:
+                old = row["category"]
+                new = normalize_category(old)
+                if old != new:
+                    self._conn.execute(
+                        f"UPDATE {table} SET category = ? WHERE category = ?",
+                        (new, old),
+                    )
+        self._conn.commit()
+
         # Own-receipt prices are inserted as verified since 5fdbf02; promote
         # the rows older saves left pending — ONCE.  Crowd imports share
         # source='receipt' (import_receipt default), so a standing UPDATE

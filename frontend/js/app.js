@@ -25,8 +25,7 @@
         }
       }
     );
-    var fab = $("add-receipt-fab");
-    if (fab) { fab.hidden = tab === "overview"; }
+    // The floating add button is available on every tab, including overview.
     if (global.location.hash !== "#" + tab) {
       global.history.replaceState(null, "", "#" + tab);
     }
@@ -56,6 +55,36 @@
     var byokProvider = $("settings-byok-provider");
     var share = $("settings-share");
     var business = $("settings-business");
+    var tokenCopy = $("settings-token-copy");
+    var tokenRestore = $("settings-token-restore");
+    var tokenRestoreBtn = $("settings-token-restore-btn");
+    var tokenFeedback = $("settings-token-feedback");
+
+    function tokenMessage(text, isError) {
+      tokenFeedback.textContent = text;
+      tokenFeedback.hidden = false;
+      tokenFeedback.setAttribute("role", isError ? "alert" : "status");
+    }
+
+    function copyToken() {
+      var value = NS.ownerToken || "";
+      function done() { tokenMessage("Kopiert! ✓", false); }
+      function fallback() {
+        var field = document.createElement("textarea");
+        field.value = value;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        try { document.execCommand("copy"); done(); }
+        catch (e) { tokenMessage("Kopieren nicht möglich – bitte manuell markieren.", true); }
+        document.body.removeChild(field);
+      }
+      if (global.navigator.clipboard && global.navigator.clipboard.writeText) {
+        global.navigator.clipboard.writeText(value).then(done).catch(fallback);
+      } else { fallback(); }
+    }
 
     function syncLabels() {
       country.value = NS.state.country || "DE";
@@ -109,10 +138,25 @@
       NS.storage.set("fairbon.business_expenses", NS.state.businessExpenses);
       NS.emit("receipts-changed");
     });
+    tokenCopy.addEventListener("click", copyToken);
+    tokenRestoreBtn.addEventListener("click", function () {
+      var value = (tokenRestore.value || "").trim();
+      if (!/^[A-Za-z0-9._-]{8,128}$/.test(value)) {
+        tokenMessage("Token ungültig – 8 bis 128 Zeichen erforderlich.", true);
+        return;
+      }
+      NS.storage.set("fairbon.owner_token.v1", value);
+      global.location.reload();
+    });
     $("settings-reset").addEventListener("click", function () {
+      if (!global.confirm(
+        "Neuen Gast-Token erzeugen? Deine bisherigen Bons sind dann nicht " +
+        "mehr sichtbar. Kopiere den aktuellen Token vorher für die Wiederherstellung."
+      )) { return; }
       NS.resetOwnerToken();
       NS.emit("receipts-changed");
       syncLabels();
+      tokenMessage("Neuer Token erzeugt – bitte kopieren und sichern.", false);
     });
   }
 

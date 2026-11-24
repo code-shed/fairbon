@@ -301,6 +301,60 @@ def test_coverage_label_is_about_receipt_prices() -> None:
     assert "Märkte" in prices
 
 
+def test_receipt_plz_becomes_default_unless_set_manually() -> None:
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    prices = (FRONTEND / "js" / "views" / "prices.js").read_text()
+
+    assert "fairbon.plz_manual" in prices
+    assert "fairbon.plz_manual" in sheet
+    assert "NS.setPostalCode(receiptPlz)" in sheet
+
+
+def test_guest_token_backup_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+
+    assert 'id="settings-token-copy"' in html
+    assert 'id="settings-token-restore"' in html
+    assert 'id="settings-token-restore-btn"' in html
+    assert "Kopiert! ✓" in app
+    assert 'NS.storage.set("fairbon.owner_token.v1"' in app
+    assert "global.confirm(" in app  # confirmation before regenerating
+
+
+def test_duplicate_warning_is_non_blocking() -> None:
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+
+    assert "Trotzdem speichern?" in sheet
+    assert "function checkDuplicate" in sheet
+    assert "function submitReceipt" in sheet
+    assert 'NS.api.get("/api/v1/receipts")' in sheet
+    assert "A failed duplicate check must never block saving" in sheet
+
+
+def test_overview_polish_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    css = (FRONTEND / "css" / "styles.css").read_text()
+    overview = (FRONTEND / "js" / "views" / "overview.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+
+    assert "Ø / Bon" in html
+    assert "Ø / Monat" not in html
+    # Bars need block display to show their width/height at all.
+    assert ".category-track { display: block" in css
+    assert ".category-fill { display: block" in css
+    assert "share * 100" in overview
+    # The floating add button is present on every tab.
+    assert "fab.hidden = tab" not in app
+    # The big start button now lives in the empty-state card only.
+    demo_start = html.index('id="demo-card"')
+    start_button = html.index('id="add-receipt-cta"')
+    assert demo_start < start_button
+    # Desktop width is capped.
+    assert "@media (min-width: 900px)" in css
+    assert "max-width: 780px" in css
+
+
 def test_business_expenses_feature_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     state = (FRONTEND / "js" / "state.js").read_text()
@@ -326,7 +380,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v15" in sw
+    assert "fairbon-v16" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

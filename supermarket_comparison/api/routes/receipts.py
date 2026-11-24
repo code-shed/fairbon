@@ -23,6 +23,7 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 
 from ...config import get_settings
+from ...normalization.categories import RECEIPT_CATEGORIES, normalize_category
 from ...services.pdf_pages import MAX_PDF_PAGES, PdfUnreadable, pdf_page_images
 from ...services.rate_limit import allow_scan, client_ip, scan_daily_global
 from ...services.receipt_import import OcrUnavailable, extract_text, try_ocr_page
@@ -48,18 +49,7 @@ router = APIRouter(prefix="/receipts", tags=["receipts"])
 _PLZ_RE = re.compile(r"^[0-9]{4,5}$")
 
 #: Categories allowed for receipt items (spec §3).
-CATEGORIES: frozenset[str] = frozenset(
-    {
-        "Lebensmittel",
-        "Getränke",
-        "Drogerie",
-        "Haushalt",
-        "Bäcker/Gastronomie",
-        "Technik/Non-Food",
-        "Pfand",
-        "Sonstiges",
-    }
-)
+CATEGORIES: frozenset[str] = frozenset(RECEIPT_CATEGORIES)
 
 #: Categories that must never be shared with the community.
 _PRIVATE_ONLY_CATEGORIES: frozenset[str] = frozenset(
@@ -596,6 +586,9 @@ async def save_receipt(
             raise HTTPException(
                 status_code=422, detail="Zeilenpreis außerhalb der Grenzen."
             )
+
+    for item in items:
+        item["category"] = normalize_category(item.get("category"))
 
     clean_store = store.strip()
     if not clean_store:

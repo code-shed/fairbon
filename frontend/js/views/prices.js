@@ -94,6 +94,11 @@
       runSearch();
     });
     els.postal.addEventListener("change", function () {
+      var typed = els.postal.value.trim();
+      if (/^[0-9]{4,5}$/.test(typed) && typed !== NS.state.postalCode) {
+        // A deliberate choice in the price tab wins over receipt PLZs.
+        NS.storage.set("fairbon.plz_manual", true);
+      }
       NS.setPostalCode(els.postal.value);
       fetchCoverage();
     });

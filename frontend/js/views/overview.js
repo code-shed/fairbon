@@ -151,7 +151,6 @@
       return;
     }
     els.empty.hidden = true;
-    var max = categories[0].total_cents || 1;
     categories.forEach(function (entry) {
       var row = document.createElement("button");
       row.type = "button";
@@ -168,7 +167,8 @@
       track.className = "category-track";
       var fill = document.createElement("span");
       fill.className = "category-fill";
-      fill.style.width = Math.max(4, Math.round((entry.total_cents / max) * 100)) + "%";
+      var share = total > 0 ? entry.total_cents / total : 0;
+      fill.style.width = Math.max(4, Math.round(share * 100)) + "%";
       track.appendChild(fill);
 
       row.appendChild(name);
