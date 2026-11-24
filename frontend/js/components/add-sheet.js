@@ -10,6 +10,7 @@
   var scanned = null;      // latest scan/demo result
   var items = [];          // editable working copy
   var isDemo = false;      // demo mode: never share with the community
+  var manualMode = false;  // manual entry: editors open, add-item button
   var progress = null;     // scan checklist controller
   var queue = [];          // receipts of a multi-page PDF, one preview each
   var queueIndex = 0;
@@ -27,6 +28,7 @@
     els.error = $("add-error");
     els.preview = $("add-preview");
     els.items = $("add-items");
+    els.addItem = $("add-item");
     els.save = $("add-save");
     els.progressSection = $("scan-progress");
     els.progressBox = $("scan-checklist");
@@ -67,6 +69,15 @@
       if (file) { scanFile(file, false); }
     });
     $("add-manual").addEventListener("click", manual);
+    els.addItem.addEventListener("click", function () {
+      items.push({
+        raw_text: "", normalized_name: "", brand: null,
+        category: "Sonstiges", quantity: 1, unit: "stueck",
+        price_cents: 0, unit_price_cents: null, discount_cents: 0,
+        deposit_cents: 0, vat_rate: 19, is_private: false
+      });
+      renderPreview(false);
+    });
     els.save.addEventListener("click", save);
     els.skip.addEventListener("click", skipQueued);
     var storeOptions = $("store-options");
@@ -101,6 +112,7 @@
     queueSaved = 0;
     queueWarnings = [];
     isDemo = !!demoMode;
+    manualMode = false;
     progress = null;
     els.preview.hidden = true;
     els.error.hidden = true;
@@ -284,6 +296,7 @@
 
   function manual() {
     isDemo = false;
+    manualMode = true;
     queue = [];
     queueIndex = 0;
     scanned = {
@@ -341,8 +354,17 @@
     els.storeField.value = (scanned && scanned.store) || "";
     els.banner.hidden = !(fromDemo && !NS.storage.get(DEMO_BANNER_KEY, false));
 
+    if (els.addItem) { els.addItem.hidden = !manualMode; }
     items.forEach(function (item, index) {
-      els.items.appendChild(renderRow(item, index));
+      var row = renderRow(item, index);
+      if (manualMode) {
+        var editor = row.querySelector(".item-editor");
+        var summary = row.querySelector(".item-summary");
+        if (editor) { editor.hidden = false; }
+        if (summary) { summary.setAttribute("aria-expanded", "true"); }
+        row.className = "receipt-item editable open";
+      }
+      els.items.appendChild(row);
     });
     renderSummary();
     renderQueueInfo();
@@ -463,6 +485,30 @@
       item.vat_rate = Number(vat.value);
     });
 
+    var quantity = document.createElement("input");
+    quantity.type = "number";
+    quantity.min = "0.01";
+    quantity.step = "0.01";
+    quantity.value = String(item.quantity || 1);
+    quantity.placeholder = "Menge";
+    quantity.setAttribute("aria-label", "Menge");
+    quantity.addEventListener("input", function () {
+      item.quantity = Number(quantity.value) || 1;
+    });
+
+    var unit = document.createElement("select");
+    unit.setAttribute("aria-label", "Einheit");
+    ["stueck", "g", "kg", "ml", "l"].forEach(function (value) {
+      var option = document.createElement("option");
+      option.value = value;
+      option.textContent = value === "stueck" ? "Stück" : value;
+      if (value === (item.unit || "stueck")) { option.selected = true; }
+      unit.appendChild(option);
+    });
+    unit.addEventListener("change", function () {
+      item.unit = unit.value;
+    });
+
     var category = document.createElement("select");
     category.setAttribute("aria-label", "Kategorie");
     ["Lebensmittel", "Getränke", "Drogerie", "Haushalt", "Bäcker/Gastronomie",
@@ -494,6 +540,8 @@
     editor.appendChild(nameInput);
     editor.appendChild(priceInput);
     editor.appendChild(vat);
+    editor.appendChild(quantity);
+    editor.appendChild(unit);
     editor.appendChild(category);
     editor.appendChild(privateLabel);
     li.appendChild(editor);

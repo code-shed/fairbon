@@ -241,7 +241,7 @@
     },
 
     /** Ask for an EAN when no BarcodeDetector is available (or detection fails). */
-    askEan: function () {
+    askEan: function (reason) {
       return new Promise(function (resolve) {
         var backdrop = document.createElement("div");
         backdrop.className = "modal-backdrop";
@@ -254,7 +254,10 @@
         title.textContent = "Barcode scannen";
         var hint = document.createElement("p");
         hint.className = "detail-note";
-        hint.textContent = "Kamera nicht verfügbar? Gib die EAN unter der Verpackung ein.";
+        hint.textContent = reason === "unsupported"
+          ? "Dieser Browser kann Barcodes nicht per Kamera lesen – " +
+            "gib die EAN unter der Verpackung ein."
+          : "EAN unter der Verpackung eingeben.";
         var field = document.createElement("label");
         field.className = "field";
         field.textContent = "EAN / GTIN";
@@ -312,32 +315,99 @@
       });
     },
 
-    /** Scan one barcode; falls back to manual entry without ever rejecting. */
+    /** Scan a barcode with the camera; manual EAN entry stays available. */
     scanBarcode: function () {
       var Detector = global.BarcodeDetector;
-      if (!Detector) { return NS.platform.askEan(); }
-      return NS.platform.pickImage().then(function (file) {
-        if (!file) { return NS.platform.askEan(); }
-        return NS.platform.readAsDataURL(file).then(function (src) {
-          return new Promise(function (resolve) {
-            var image = new Image();
-            image.onload = function () {
-              try {
-                var detector = new Detector({
-                  formats: ["ean_13", "ean_8", "upc_a", "code_128"]
-                });
-                detector.detect(image).then(function (codes) {
-                  resolve(codes && codes.length
-                    ? String(codes[0].rawValue)
-                    : NS.platform.askEan());
-                }).catch(function () { resolve(NS.platform.askEan()); });
-              } catch (e) { resolve(NS.platform.askEan()); }
-            };
-            image.onerror = function () { resolve(NS.platform.askEan()); };
-            image.src = src;
-          });
+      var devices = global.navigator && global.navigator.mediaDevices;
+      if (!Detector || !devices || !devices.getUserMedia || !global.isSecureContext) {
+        return NS.platform.askEan("unsupported");
+      }
+
+      return new Promise(function (resolve) {
+        var stream = null;
+        var timer = null;
+        var finished = false;
+        var detector = new Detector({
+          formats: ["ean_13", "ean_8", "upc_a", "code_128"]
         });
-      }).catch(function () { return NS.platform.askEan(); });
+
+        var overlay = document.createElement("div");
+        overlay.className = "camera-overlay";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-label", "Barcode scannen");
+
+        var video = document.createElement("video");
+        video.autoplay = true;
+        video.muted = true;
+        video.setAttribute("playsinline", "");
+        var frame = document.createElement("div");
+        frame.className = "camera-frame barcode-frame";
+        var hint = document.createElement("p");
+        hint.className = "camera-hint";
+        hint.setAttribute("role", "status");
+        hint.textContent = "Kamera wird gestartet …";
+        var manual = document.createElement("button");
+        manual.type = "button";
+        manual.className = "camera-manual";
+        manual.textContent = "EAN manuell eingeben";
+        var cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "camera-cancel";
+        cancel.textContent = "Fertig";
+
+        function cleanup() {
+          if (timer) { global.clearInterval(timer); timer = null; }
+          if (stream) {
+            stream.getTracks().forEach(function (track) { track.stop(); });
+            stream = null;
+          }
+          if (overlay.parentNode) { document.body.removeChild(overlay); }
+        }
+        function finish(value) {
+          if (finished) { return; }
+          finished = true;
+          cleanup();
+          resolve(value);
+        }
+        function manualEntry() {
+          if (finished) { return; }
+          finished = true;
+          cleanup();
+          NS.platform.askEan().then(resolve);
+        }
+
+        manual.addEventListener("click", manualEntry);
+        cancel.addEventListener("click", function () { finish(null); });
+        overlay.addEventListener("click", function (event) {
+          if (event.target === overlay) { finish(null); }
+        });
+        overlay.appendChild(video);
+        overlay.appendChild(frame);
+        overlay.appendChild(hint);
+        overlay.appendChild(manual);
+        overlay.appendChild(cancel);
+        document.body.appendChild(overlay);
+
+        devices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        }).then(function (mediaStream) {
+          stream = mediaStream;
+          video.srcObject = stream;
+          return video.play();
+        }).then(function () {
+          hint.textContent = "Barcode in den Rahmen halten.";
+          timer = global.setInterval(function () {
+            if (!video.videoWidth) { return; }
+            detector.detect(video).then(function (codes) {
+              if (codes && codes.length) {
+                if (NS.haptic) { NS.haptic(); }
+                finish(String(codes[0].rawValue));
+              }
+            }).catch(function () { /* keep scanning */ });
+          }, 350);
+        }).catch(function () { manualEntry(); });
+      });
     }
   };
 })(window);

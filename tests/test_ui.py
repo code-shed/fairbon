@@ -333,6 +333,20 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_manual_entry_has_open_editors_and_add_item() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="add-item"' in html
+    assert "+ Artikel hinzufügen" in html
+    assert "manualMode" in sheet
+    assert 'els.addItem.hidden = !manualMode' in sheet
+    assert 'item-editor' in sheet and 'aria-label", "Menge"' in sheet
+    assert 'aria-label", "Einheit"' in sheet
+
+
 def test_no_offer_validity_filter_in_the_search_ui() -> None:
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     prices = (FRONTEND / "js" / "views" / "prices.js").read_text(encoding="utf-8")
@@ -358,6 +372,9 @@ def test_camera_capture_has_guidance_and_file_fallback() -> None:
     assert "camera-gallery" in platform  # bottom-left gallery button
     assert "gallery.addEventListener" in platform
     assert "NS.platform.pickImage().then(resolve)" in platform  # fallback
+    assert "detector.detect(video)" in platform  # live barcode scanning
+    assert "EAN manuell eingeben" in platform  # manual is an option
+    assert 'askEan("unsupported")' in platform  # honest fallback text
     assert "NS.platform.captureReceipt()" in sheet
 
 
@@ -545,7 +562,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v33" in sw
+    assert "fairbon-v36" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

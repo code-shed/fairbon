@@ -1067,7 +1067,7 @@ input, select, textarea { font-size: 16px; }
   align-items: center; justify-content: center; gap: 2px; pointer-events: none;
 }
 .donut-total { font: 700 clamp(1.5rem, 6vw, 2rem)/1.1 var(--font-display); }
-.donut-sub { font-size: .74rem; color: var(--muted); max-width: 62%; margin: 0 auto; line-height: 1.35; }
+.donut-sub { font-size: .74rem; color: var(--muted); max-width: 62%; margin: 0 auto; line-height: 1.35; text-align: center; }
 .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat {
   background: var(--surface-alt); border-radius: var(--radius-sm);
@@ -1520,3 +1520,8 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 }
 #receipt-feedback { color: var(--accent); font-weight: 600; margin: 8px 0; }
 #receipt-feedback[hidden] { display: none; }
+#add-item { width: 100%; min-height: 44px; margin-top: 8px; }
+.camera-frame.barcode-frame { width: min(94vw, 620px); flex: 0 0 auto; height: 150px; }
+.camera-manual { position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(28px + env(safe-area-inset-bottom)); }
+.camera-overlay .camera-cancel { right: 16px; left: auto; }
