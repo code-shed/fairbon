@@ -81,6 +81,12 @@
     --info-bg: #12303f;
     --focus: #6fdcab;
   }
+  /* Native form controls must follow the active theme, not the OS alone. */
+  :root { color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) { color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { color-scheme: dark; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
@@ -176,7 +182,8 @@
     text-transform: uppercase;
     color: var(--muted);
   }
-  input[type="text"], input[type="search"], select, textarea {
+  input[type="text"], input[type="search"], input[type="number"],
+  input[type="password"], input[type="email"], select, textarea {
     width: 100%;
     padding: 11px 13px;
     font: inherit;

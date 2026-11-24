@@ -562,7 +562,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v36" in sw
+    assert "fairbon-v37" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -868,3 +868,12 @@ def test_docs_still_available(client: TestClient) -> None:
 def test_legacy_template_still_present_as_fallback() -> None:
     path = Path(FRONTEND).parents[0] / "supermarket_comparison/api/templates/index.html"
     assert path.is_file() or True  # fallback may be removed in a later cleanup
+
+
+def test_form_controls_follow_the_active_theme() -> None:
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+
+    assert 'input[type="number"]' in css
+    assert 'input[type="password"]' in css
+    assert ":root { color-scheme: light; }" in css
+    assert ':root[data-theme="dark"] { color-scheme: dark; }' in css
