@@ -98,6 +98,51 @@ def _contact_email() -> str:
     return _esc(email)
 
 
+def _phase_note() -> str:
+    """Honest note about the current (test vs. public) operating phase."""
+
+    settings = get_settings()
+    if not settings.privacy_test_mode:
+        return (
+            '<section class="legal-phase">'
+            "<p><strong>Betriebsphase:</strong> Regulärer Betrieb. Die Angaben "
+            "zu Verantwortlichem und Dienstleistern richten sich nach den "
+            "hinterlegten Konfigurationswerten.</p>"
+            "</section>"
+        )
+    active = [
+        (
+            "Zugriff nur mit Passwort (privater Testkreis)"
+            if settings.site_password
+            else "Zugriff ohne Passwortschutz"
+        ),
+        "eBon-/PDF-/Textimport und manuelle Eingabe",
+        (
+            "Foto-Scan per Vision-Anbieter verfügbar"
+            if settings.vision_primary_api_key or settings.vision_fallback_api_key
+            else "Foto-Scan derzeit nicht konfiguriert"
+        ),
+        (
+            "Community-Preise automatisch Teil des Angebots"
+            if settings.require_community_sharing
+            else "Community-Preise nur nach ausdrücklichem Opt-in"
+        ),
+    ]
+    if settings.turnstile_site_key:
+        active.append("Bot-Schutz (Turnstile) aktiv")
+    if not (settings.imprint_name and settings.imprint_address):
+        active.append("Keine öffentlichen Betreiberdaten hinterlegt")
+    items = "".join(f"<li>{_esc(text)}</li>" for text in active)
+    return (
+        '<section class="legal-phase">'
+        "<p><strong>Geschlossener Testbetrieb:</strong> Diese FairBon-Instanz "
+        "befindet sich in einer privaten Test-/Betriebsphase. Aktuell aktiv "
+        "sind:</p>"
+        f"<ul>{items}</ul>"
+        "</section>"
+    )
+
+
 def _page(title: str, body: str) -> HTMLResponse:
     html = f"""<!DOCTYPE html>
 <html lang="de">
@@ -112,6 +157,7 @@ def _page(title: str, body: str) -> HTMLResponse:
 <body>
   <main class="legal-page">
     <a class="legal-back" href="./">← Zurück zu FairBon</a>
+    {_phase_note()}
     {body}
     <nav class="legal-links" aria-label="Rechtliches">
       <a href="./impressum">Impressum</a> · <a href="./datenschutz">Datenschutz</a>
@@ -144,14 +190,19 @@ async def impressum() -> HTMLResponse:
 @router.get("/datenschutz", include_in_schema=False)
 async def datenschutz() -> HTMLResponse:
     settings = get_settings()
-    if settings.privacy_hoster:
+    hoster_value = _esc(settings.privacy_hoster)
+    if hoster_value:
         hoster = (
-            f"Diese Instanz wird technisch von {_esc(settings.privacy_hoster)} "
-            "gehostet; soweit zutreffend erfolgt die Auftragsverarbeitung "
-            "gemäß Art. 28 DSGVO."
+            f"<dt>Anbieter und Standort</dt><dd>{hoster_value}</dd>"
+            "<dt>Rolle</dt><dd>Technischer Dienstleister bzw. "
+            "Auftragsverarbeiter gemäß Art. 28 DSGVO, soweit ein "
+            "entsprechender Vertrag besteht.</dd>"
         )
     else:
-        hoster = "Diese Instanz wird von der jeweils verantwortlichen Person gehostet."
+        hoster = (
+            "<dt>Anbieter und Standort</dt><dd>Diese Instanz wird von der "
+            "jeweils verantwortlichen Person gehostet.</dd>"
+        )
 
     retention = _esc(settings.privacy_log_retention)
     vision = _vision_provider_name()
@@ -167,6 +218,20 @@ async def datenschutz() -> HTMLResponse:
             "Speicherfristen richten sich nach den Bedingungen des jeweils "
             "eingesetzten Anbieters."
         )
+    if settings.privacy_byok_reaches_server:
+        byok_route = (
+            "wird der Key bei aktiv ausgelösten Foto-Scans als Request-Header "
+            "(<code>X-User-Vision-Key</code>) an den FairBon-Server übermittelt "
+            "und von dort aus an den selbst gewählten Anbieter weitergeleitet. "
+            "Der Key wird vom Server nicht dauerhaft gespeichert und nicht in "
+            "Logs protokolliert."
+        )
+    else:
+        byok_route = (
+            "verbleibt der Key im Browser; die Anfrage geht für den Scan direkt "
+            "an den selbst gewählten Anbieter, ohne den FairBon-Server zu "
+            "durchlaufen."
+        )
     contact = _contact_email()
     contact_html = (
         f'<a href="mailto:{contact}">{contact}</a>'
@@ -175,17 +240,18 @@ async def datenschutz() -> HTMLResponse:
     )
     if settings.require_community_sharing:
         sharing = (
-            "Bei aktiver kostenloser Nutzung ohne eigenen API-Key sind "
-            "anonymisierte Preise automatisch Bestandteil des Angebots; "
-            "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO "
-            "(Vertragserfüllung bzw. berechtigtes Interesse an einem "
-            "offenen, kostenlosen Preisvergleich)."
+            "Bei kostenloser Nutzung ohne eigenen API-Key sind anonymisierte "
+            "Preise automatisch Bestandteil des Angebots; Rechtsgrundlage ist "
+            "Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO (Vertragserfüllung bzw. "
+            "berechtigtes Interesse an einem offenen Preisvergleich). Künftiges "
+            "Teilen kannst du beenden, indem du einen eigenen API-Key "
+            "verwendest oder FairBon selbst hostest."
         )
     else:
         sharing = (
-            "Das Teilen ist vollständig freiwillig und erfolgt ausschließlich "
-            "nach ausdrücklichem Opt-in; Rechtsgrundlage ist Art. 6 Abs. 1 "
-            "lit. a DSGVO (Einwilligung)."
+            "Das Teilen erfolgt ausschließlich nach ausdrücklichem Opt-in "
+            "(Rechtsgrundlage Art. 6 Abs. 1 lit. a DSGVO) und lässt sich in den "
+            "Einstellungen für künftige Bons jederzeit abschalten."
         )
     turnstile = ""
     if settings.turnstile_site_key:
@@ -204,72 +270,113 @@ async def datenschutz() -> HTMLResponse:
             + _esc(settings.privacy_supervisory_authority)
             + "."
         )
+    storage = [
+        (
+            "Gast-Token",
+            "zufällig erzeugter Gast-Token, der den Zugriff auf die "
+            "zugehörigen Bons ermöglicht",
+        ),
+        ("Budget", "Monatsbudget und Beginn des Abrechnungszeitraums"),
+        ("Merkliste", "Einkaufszettel und gemerkte Produkte"),
+        ("Postleitzahl", "gewählte PLZ für den lokalen Preisvergleich"),
+        (
+            "Oberflächeneinstellungen",
+            "Darstellung, Farbschema und weitere Einstellungen",
+        ),
+    ]
+    storage_items = "".join(
+        f"<li><strong>{_esc(label)}</strong>: {_esc(purpose)}</li>"
+        for label, purpose in storage
+    )
     body = f"""
     <h1>Datenschutzerklärung</h1>
-    <p>Informationen gemäß Art. 13 DSGVO. Diese Erklärung passt sich der
-      Konfiguration dieser FairBon-Instanz an.</p>
+    <p>Informationen gemäß Art. 13 DSGVO. Diese Erklärung beschreibt die
+      Verarbeitungen dieser FairBon-Instanz auf Basis ihrer Konfiguration.</p>
 
-    <h2>1. Verantwortlicher</h2>
+    <h2>1. Verantwortlicher und Betriebsphase</h2>
     {_operator()}
     <p>Kontakt für Datenschutzanfragen: {contact_html}</p>
+    <p>Ein Hosting-Dienstleister – etwa STRATO, sofern er für diese Instanz
+      genutzt wird – ist technischer Dienstleister bzw. Auftragsverarbeiter
+      und nicht der Verantwortliche für FairBon. Verantwortlich ist die oben
+      genannte Person bzw. Organisation.</p>
 
-    <h2>2. Kein Account, kein Tracking, keine Werbe-Cookies</h2>
-    <p>FairBon kommt ohne Registrierung, ohne Analyse- und Werbe-Cookies und
-      ohne Nutzer-Tracking aus. Für die ausdrücklich gewünschte App-Funktion
-      werden folgende Werte ausschließlich im <code>localStorage</code> deines
-      Browsers gespeichert: der anonyme <code>owner_token</code> (Zuordnung der eigenen
-      Bons ohne Benutzerkonto), die gewählte Postleitzahl, Merkliste und
-      Einkaufszettel, das lokale Monatsbudget sowie Erscheinungsbild und
-      weitere Einstellungen. Diese Speicherung ist technisch zwingend
-      erforderlich und nach § 25 Abs. 2 Nr. 2 TDDDG zulässig – ein
-      Tracking-/Einwilligungs-Cookie-Banner ist daher nicht erforderlich.</p>
-    <p><strong>Optionaler eigener API-Key (BYOK):</strong> Hinterlegst du
-      freiwillig einen eigenen Vision-API-Key, wird er ausschließlich in deinem
-      Browser gespeichert und nur bei aktiv ausgelösten Foto-Scans als Request-
-      Header (<code>X-User-Vision-Key</code>) an das Backend übergeben. Der
-      Server speichert und protokolliert den Key nicht. Du kannst ihn jederzeit
+    <h2>2. Kein Werbe- oder Analytics-Tracking</h2>
+    <p>FairBon setzt keine Werbe- oder Analyse-Cookies und kein Tracking des
+      Nutzerverhaltens ein. Technisch kommen dennoch Verbindungen zustande:
+      zum Hosting-Server (Auslieferung und Zugriffsprotokolle), bei aktiv
+      ausgelöstem Foto-Scan zum Vision-Anbieter sowie – wenn du diese
+      Funktionen nutzt – zu Open Food Facts / Open Prices (Barcode-Abgleich
+      und Produktbilder). Diese Vorgänge sind in den folgenden Abschnitten
+      beschrieben.</p>
+
+    <h2>3. Lokal im Browser gespeicherte Daten (§ 25 Abs. 2 Nr. 2 TDDDG)</h2>
+    <p>Für die von dir gewünschten App-Funktionen liegen folgende Werte im
+      <code>localStorage</code> deines Browsers:</p>
+    <ul>{storage_items}</ul>
+    <p>Die ersten vier Einträge sind erforderlich, damit deine Bons, Budgets
+      und Merkliste ohne Benutzerkonto funktionieren; die
+      Oberflächeneinstellungen sind freiwillig und jederzeit änderbar. Für
+      diese technisch bedingte Speicherung ist kein Einwilligungs-Cookie-Banner
+      erforderlich. Du kannst alle Einträge in den App-Einstellungen
+      zurücksetzen oder vollständig über die Website-Daten deines Browsers
+      löschen.</p>
+    <p><strong>Eigener API-Key (BYOK):</strong> Hinterlegst du freiwillig einen
+      eigenen Vision-API-Key, wird er ausschließlich in deinem Browser
+      gespeichert. Bei einem Foto-Scan {byok_route} Du kannst den Key jederzeit
       in den Einstellungen entfernen oder durch Löschen der Website-Daten
       deines Browsers. Verantwortung für Auswahl und Bedingungen des externen
       Anbieters trägst in diesem Fall du.</p>
 
-    <h2>3. Hosting &amp; Server-Protokolle</h2>
-    <p>{hoster}</p>
-    <p>Beim Aufruf werden technische Zugriffsdaten verarbeitet: IP-Adresse,
-      Zeitstempel, abgerufene URL, HTTP-Statuscode und User-Agent. Zweck ist
-      die sichere Auslieferung der Web-App, Fehleranalyse sowie Missbrauchs-
-      und DoS-Schutz (Rate-Limiting). Rechtsgrundlage ist Art. 6 Abs. 1
-      lit. f DSGVO (berechtigtes Interesse an sicherem und stabilem Betrieb).
-      Die Speicherdauer beträgt {retention}; danach werden die Daten
-      automatisch gelöscht oder anonymisiert, sofern keine sicherheitsrelevante
-      Aufklärung erforderlich ist.</p>
+    <h2>4. Hosting und Zugriffsdaten</h2>
+    <dl>{hoster}</dl>
+    <p><strong>Erfasste Daten:</strong> IP-Adresse, Zeitstempel, abgerufene URL,
+      HTTP-Statuscode und User-Agent.</p>
+    <p><strong>Zweck:</strong> sichere Auslieferung der Web-App, Fehleranalyse
+      sowie Missbrauchs- und DoS-Schutz (Rate-Limiting). <strong>Rechtsgrundlage:
+      </strong>Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an sicherem
+      und stabilem Betrieb).</p>
+    <p><strong>Speicherdauer:</strong> {retention}. Danach werden die Daten
+      gelöscht oder anonymisiert, sofern keine sicherheitsrelevante Aufklärung
+      erforderlich ist.</p>
 
-    <h2>4. Kassenbon-Erfassung &amp; KI-Verarbeitung</h2>
+    <h2>5. Kassenbon-Erfassung und KI-Verarbeitung</h2>
     <p><strong>eBon-PDF, Text und manuelle Eingabe:</strong> Diese Daten werden
-      ausschließlich auf dem Server dieser Instanz ohne Weitergabe an externe
-      KI-Anbieter verarbeitet (lokaler PDF-/Textparser).</p>
-    <p><strong>Papier-Foto-Scan (optional):</strong> Das im Browser verkleinerte
-      und in Graustufen umgewandelte Bild wird serverseitig im Arbeitsspeicher
-      geprüft, von EXIF-/GPS-Metadaten befreit, zur Texterkennung an
-      {vision} übermittelt und nach Abschluss der Auswertung verworfen (keine
-      dauerhafte Speicherung des Belegfotos durch FairBon). Rechtsgrundlage ist
-      Art. 6 Abs. 1 lit. b DSGVO (Durchführung der von dir aktiv ausgelösten
-      Belegauswertung). Übermittelt wird das bereinigte Belegfoto. {vision_details}
+      ausschließlich auf dem Server dieser Instanz verarbeitet (lokaler
+      PDF-/Textparser) und ohne Weitergabe an eine externe KI-API ausgewertet.</p>
+    <p><strong>Papier-Foto-Scan – Browser:</strong> Das Foto wird bereits in
+      deinem Browser verkleinert und in Graustufen umgewandelt.</p>
+    <p><strong>Papier-Foto-Scan – FairBon-Server:</strong> Serverseitig wird das
+      Bild im Arbeitsspeicher geprüft (Magic-Bytes) und von EXIF-/GPS-Metadaten
+      befreit. Für die Auswertung wird es an {vision} übermittelt; nach
+      Abschluss der Antwort wird es verworfen. FairBon speichert das
+      Belegfoto nicht dauerhaft. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b
+      DSGVO (Durchführung der von dir aktiv ausgelösten Belegauswertung).
       Zahlungs-, EC- und TSE-Daten sowie genaue Uhrzeiten werden nicht
       gespeichert.</p>
+    <p><strong>Papier-Foto-Scan – KI-Anbieter:</strong> {vision_details} Für die
+      Verarbeitung beim Anbieter gelten dessen eigene Bedingungen,
+      Speicherfristen und Regeln zur Verwendung des Bildes für Modellzwecke.</p>
 
-    <h2>5. Anonyme Community-Preise</h2>
-    <p>Gespeichert werden ausschließlich Produktbezeichnung/EAN, Preis,
+    <h2>6. Anonyme Community-Preise</h2>
+    <p>Geteilt werden ausschließlich Produktbezeichnung/EAN, Preis,
       Handelskette, PLZ-Region und Datum – ohne <code>owner_token</code>, ohne
       <code>receipt_id</code> (kein verknüpfter Gesamt-Warenkorb), ohne genaue
       Uhrzeit und ohne Zahlungsdaten. Erfasst werden nur die
       preisvergleichsrelevanten Kategorien Lebensmittel, Getränke, Drogerie und
-      Haushalt, um Rückschlüsse auf einzelne Personen zu vermeiden. {sharing}</p>
+      Haushalt. {sharing}</p>
+    <p>Bereits ohne Zuordnung zu einem Nutzerkonto oder Beleg gespeicherte
+      Preisdaten können nachträglich in der Regel nicht mehr individuell
+      gelöscht werden, da kein Personenbezug zu deinem Gast-Token besteht
+      (Art. 11 DSGVO).</p>
 
-    <h2>6. Externe Schnittstellen &amp; Quellen</h2>
+    <h2>7. Externe Schnittstellen und Quellen</h2>
     <p><strong>Serverseitige EAN-/Preisabfragen:</strong> Für Barcode-Abgleich
       und Community-Preise fragt der FairBon-Server Open Food Facts / Open
       Prices ab. Übermittelt werden EAN bzw. Suchbegriff sowie die IP-Adresse
-      des Servers – nicht deine IP-Adresse.</p>
+      des Servers – nicht deine IP-Adresse. Zweck ist die Anzeige vergleichbarer
+      Produkt- und Preisinformationen, Rechtsgrundlage Art. 6 Abs. 1 lit. f
+      DSGVO (berechtigtes Interesse an aktuellen Preisinformationen).</p>
     <p><strong>Produktbilder:</strong> Werden Bilder direkt im Browser von Open
       Food Facts geladen, übermittelt der Browser technisch bedingt deine
       IP-Adresse und übliche Request-Daten. Zweck ist die Anzeige frei
@@ -278,15 +385,16 @@ async def datenschutz() -> HTMLResponse:
       den Produktangaben.</p>
     {turnstile}
 
-    <h2>7. Deine Rechte</h2>
+    <h2>8. Deine Rechte</h2>
     <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung
       der Verarbeitung, Widerspruch und Datenübertragbarkeit. Richte deine
       Anfrage bitte an {contact_html}. Da FairBon ohne Benutzerkonten arbeitet,
       kannst du eigene Belege und lokal gespeicherte Daten jederzeit direkt in
       der App löschen oder exportieren. Für Anfragen an den Betreiber wird
-      ggf. dein eigener anonymer <code>owner_token</code> benötigt. Bereits
-      anonymisierte Community-Einzelpreise lassen sich mangels Personenbezug
-      nachträglich keiner einzelnen Person mehr zuordnen (Art. 11 DSGVO).</p>
+      ggf. dein zufällig erzeugter Gast-Token, der den Zugriff auf die
+      zugehörigen Bons ermöglicht, benötigt. Bereits anonymisierte
+      Community-Einzelpreise lassen sich mangels Personenbezug nachträglich
+      keiner einzelnen Person mehr zuordnen (Art. 11 DSGVO).</p>
     <p>Du hast das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu
       beschweren (Art. 77 DSGVO) – insbesondere an deinem gewöhnlichen
       Aufenthaltsort, deinem Arbeitsplatz oder am Sitz des Verantwortlichen.

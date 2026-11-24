@@ -16,11 +16,13 @@ LEGAL_KEYS = (
     "imprint_address",
     "imprint_email",
     "imprint_phone",
+    "privacy_test_mode",
     "privacy_hoster",
     "privacy_vision_provider",
     "privacy_contact_email",
     "privacy_log_retention",
     "privacy_vision_provider_details",
+    "privacy_byok_reaches_server",
     "privacy_supervisory_authority",
     "stealth_mode",
     "site_password",
@@ -43,6 +45,8 @@ def settings_backup() -> Iterator[None]:
         object.__setattr__(settings, key, default)
     object.__setattr__(settings, "stealth_mode", False)
     object.__setattr__(settings, "site_password", None)
+    object.__setattr__(settings, "privacy_test_mode", True)
+    object.__setattr__(settings, "privacy_byok_reaches_server", True)
     object.__setattr__(settings, "privacy_log_retention", DEFAULT_RETENTION)
     object.__setattr__(settings, "max_global_scans_per_day", 500)
     yield
@@ -65,6 +69,7 @@ def test_legal_pages_load_with_neutral_placeholder(client: TestClient) -> None:
         assert "./css/styles.css" in response.text
         assert 'src="./js/legal-theme.js"' in response.text
         assert "<script>" not in response.text  # no inline scripts (CSP)
+        assert "Geschlossener Testbetrieb" in response.text
 
     privacy = client.get("/datenschutz").text
     neutral_hoster = "Diese Instanz wird von der jeweils verantwortlichen Person"
@@ -142,8 +147,9 @@ def test_optional_sections_follow_configuration(client: TestClient) -> None:
     object.__setattr__(settings, "require_community_sharing", False)
     text = client.get("/datenschutz").text
     assert "Cloudflare Turnstile" not in text
-    assert "vollständig freiwillig" in text
-    assert "Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)" in text
+    assert "ausschließlich nach ausdrücklichem Opt-in" in text
+    assert "Art. 6 Abs. 1 lit. a DSGVO" in text
+    assert "jederzeit abschalten" in text
 
     object.__setattr__(settings, "turnstile_site_key", "site-key")
     object.__setattr__(settings, "require_community_sharing", True)
@@ -190,7 +196,17 @@ def test_privacy_legal_bases_and_concrete_fields(client: TestClient) -> None:
         "Art. 11 DSGVO",
         "Art. 77 DSGVO",
         "X-User-Vision-Key",
-        "Der Server speichert und protokolliert den Key nicht",
+        "Der Key wird vom Server nicht dauerhaft gespeichert",
+        "zufällig erzeugter Gast-Token, der den Zugriff auf die "
+        "zugehörigen Bons ermöglicht",
+        "Kein Werbe- oder Analytics-Tracking",
+        "Oberflächeneinstellungen",
+        "durch Löschen der Website-Daten deines Browsers",
+        "Anbieter und Standort",
+        "Auftragsverarbeiter",
+        "STRATO",
+        "Speicherdauer",
+        "nicht mehr individuell gelöscht",
         "Produktbezeichnung/EAN",
         "ohne <code>receipt_id</code>",
         "PLZ-Region",
@@ -228,7 +244,7 @@ def test_no_absolute_or_raw_developer_claims(client: TestClient) -> None:
     ):
         assert phrase not in text, phrase
     assert "ausschließlich auf dem Server dieser Instanz" in text
-    assert "keine dauerhafte Speicherung des Belegfotos durch FairBon" in text
+    assert "FairBon speichert das Belegfoto nicht dauerhaft" in text
 
 
 def test_no_outdated_legal_terms(client: TestClient) -> None:
@@ -237,3 +253,48 @@ def test_no_outdated_legal_terms(client: TestClient) -> None:
         assert "§ 5 TMG" not in text
         assert "ec.europa.eu/consumers/odr" not in text
         assert "§ 5 DDG" in text or "Datenschutzerklärung" in text
+
+
+def test_phase_note_follows_privacy_test_mode(client: TestClient) -> None:
+    settings = get_settings()
+    for path in ("/impressum", "/datenschutz"):
+        text = " ".join(client.get(path).text.split())
+        assert "Geschlossener Testbetrieb" in text
+        assert "eBon-/PDF-/Textimport und manuelle Eingabe" in text
+
+    object.__setattr__(settings, "site_password", "test-pass")
+    object.__setattr__(settings, "vision_primary_api_key", "dummy")
+    auth = ("x", "test-pass")
+    text = " ".join(client.get("/datenschutz", auth=auth).text.split())
+    assert "Zugriff nur mit Passwort (privater Testkreis)" in text
+    assert "Foto-Scan per Vision-Anbieter verfügbar" in text
+    assert "Keine öffentlichen Betreiberdaten hinterlegt" in text
+
+    object.__setattr__(settings, "privacy_test_mode", False)
+    text = " ".join(client.get("/datenschutz", auth=auth).text.split())
+    assert "Regulärer Betrieb" in text
+    assert "Geschlossener Testbetrieb" not in text
+
+
+def test_byok_route_follows_configuration(client: TestClient) -> None:
+    settings = get_settings()
+    text = " ".join(client.get("/datenschutz").text.split())
+    assert "an den FairBon-Server übermittelt" in text
+    assert "von dort aus an den selbst gewählten Anbieter weitergeleitet" in text
+
+    object.__setattr__(settings, "privacy_byok_reaches_server", False)
+    text = " ".join(client.get("/datenschutz").text.split())
+    assert "ohne den FairBon-Server zu durchlaufen" in text
+    assert "als Request-Header" not in text
+
+
+def test_tracking_section_is_factual(client: TestClient) -> None:
+    text = " ".join(client.get("/datenschutz").text.split())
+    assert "kein Tracking des Nutzerverhaltens" in text
+    assert "Kein Werbe- oder Analytics-Tracking" in text
+    for phrase in (
+        "keine externen Verbindungen",
+        "ohne jegliche Datenübertragung",
+        "absolut keine Speicherung",
+    ):
+        assert phrase not in text

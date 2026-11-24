@@ -31,11 +31,13 @@ _ENV_ALIASES: Final[dict[str, str]] = {
     "imprint_address": "IMPRINT_ADDRESS",
     "imprint_email": "IMPRINT_EMAIL",
     "imprint_phone": "IMPRINT_PHONE",
+    "privacy_test_mode": "PRIVACY_TEST_MODE",
     "privacy_hoster": "PRIVACY_HOSTER",
     "privacy_vision_provider": "PRIVACY_VISION_PROVIDER",
     "privacy_contact_email": "PRIVACY_CONTACT_EMAIL",
     "privacy_log_retention": "PRIVACY_LOG_RETENTION",
     "privacy_vision_provider_details": "PRIVACY_VISION_PROVIDER_DETAILS",
+    "privacy_byok_reaches_server": "PRIVACY_BYOK_REACHES_SERVER",
     "privacy_supervisory_authority": "PRIVACY_SUPERVISORY_AUTHORITY",
     "max_upload_bytes": "MAX_UPLOAD_BYTES",
     "vision_primary_provider": "VISION_PRIMARY_PROVIDER",
@@ -125,11 +127,16 @@ class Settings(BaseModel):
     imprint_address: str = ""  # lines separated by ``|`` or ``\n``
     imprint_email: str = ""
     imprint_phone: str = ""
+    #: Closed test/friends phase (no public operator details yet).
+    privacy_test_mode: bool = True
     privacy_hoster: str = ""
     privacy_vision_provider: str = ""  # empty -> derive from VISION_*_PROVIDER
     privacy_contact_email: str = ""  # empty -> fall back to imprint_email
     privacy_log_retention: str = "in der Regel bis zu 7 Tage"
     privacy_vision_provider_details: str = ""
+    #: Whether a user's BYOK key is forwarded through our server to the
+    #: chosen vision provider (as opposed to a direct browser connection).
+    privacy_byok_reaches_server: bool = True
     privacy_supervisory_authority: str = ""
 
     standard_price_limit: int = 12
