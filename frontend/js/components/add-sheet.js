@@ -609,6 +609,7 @@
 
   function submitReceipt(data, demoFlag) {
     els.save.disabled = true;
+    NS.haptic();
     NS.api.postForm("/api/v1/receipts", data).then(function (result) {
       if (demoFlag && result && result.receipt_id) {
         NS.demo.markSaved(result.receipt_id);

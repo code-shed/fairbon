@@ -151,6 +151,20 @@
       </div>
     </section>
 
+    <div class="dashboard-tiles" id="dashboard-tiles">
+      <div class="tile" id="tile-onboarding" role="button" tabindex="0" aria-label="Erste Schritte öffnen">
+        <button type="button" class="tile-close" id="tile-onboarding-close" aria-label="Kachel schließen">×</button>
+        <span class="tile-label">Erste Schritte</span>
+        <strong id="onboarding-progress">0/5</strong>
+        <span class="tile-sub">Kurze Checkliste für den Start</span>
+      </div>
+      <div class="tile" id="tile-community" role="button" tabindex="0" aria-label="Community-Beitrag öffnen">
+        <span class="tile-label">Community-Beitrag</span>
+        <strong id="community-count">0 Preise geteilt</strong>
+        <span class="tile-sub">Zum Preisvergleich →</span>
+      </div>
+    </div>
+
     <section class="card categories-card" aria-labelledby="categories-heading">
       <h2 id="categories-heading">Kategorien</h2>
       <div class="category-bars" id="category-bars"></div>
@@ -416,49 +430,124 @@
     <button type="button" class="drawer-close" id="settings-close" aria-label="Schließen">×</button>
   </div>
   <div class="modal-body settings-body">
-    <label class="field">Land
-      <select id="settings-country"><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="CH">Schweiz</option></select>
-    </label>
-    <label class="field">Monatsbudget (optional, €)
-      <input type="number" id="settings-budget" min="0" step="1" placeholder="z. B. 250">
-    </label>
-    <label class="field">Budgetbeginn (Tag des Monats, 1–28)
-      <input type="number" id="settings-budget-start" min="1" max="28" step="1" placeholder="z. B. 25 (Gehaltstag)">
-    </label>
-    <label class="switch" for="settings-share">
-      <input type="checkbox" id="settings-share" checked>
-      <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
-    </label>
-    <label class="switch" for="settings-doc-enhance">
-      <input type="checkbox" id="settings-doc-enhance" checked>
-      <span>Verbesserter Dokumentenscanner (Kontrast &amp; Schärfe für Thermopapier)</span>
-    </label>
-    <label class="switch" for="settings-business">
-      <input type="checkbox" id="settings-business">
-      <span>Geschäftliche Ausgaben erfassen (für Selbständige)</span>
-    </label>
-    <label class="field">Eigener Vision-Anbieter (BYOK, optional)
-      <select id="settings-byok-provider">
-        <option value="openai_compatible">OpenAI</option>
-        <option value="gemini">Google Gemini</option>
-        <option value="mistral">Mistral</option>
-        <option value="opencode">OpenCode</option>
-      </select>
-    </label>
-    <label class="field">Eigener Vision-API-Key (BYOK, optional)
-      <input type="password" id="settings-byok" autocomplete="off" placeholder="überspringt Scan-Limits">
-    </label>
-    <div class="settings-actions">
-      <a class="secondary btn-link" href="/admin" target="_blank" rel="noopener">Admin</a>
-      <button type="button" class="secondary" id="settings-token-copy">Token kopieren</button>
-      <button type="button" class="secondary" id="settings-reset">Gast-Token neu erzeugen</button>
-    </div>
-    <label class="field">Gast-Token wiederherstellen (Geräte- oder Browserwechsel)
-      <input type="text" id="settings-token-restore" autocomplete="off" placeholder="Früheren Token einfügen">
-    </label>
-    <button type="button" class="secondary" id="settings-token-restore-btn">Token wiederherstellen</button>
-    <p class="detail-note" id="settings-token-feedback" role="status" hidden></p>
-    <p class="detail-note">100 % Open Source · Community-Kassenbons (anonymisiert) · Alle Angaben ohne Gewähr · Kein Datenverkauf</p>
+    <section class="settings-section backup-card">
+      <h3>Daten sichern</h3>
+      <p class="detail-note">Gast-Token kopieren oder Belege exportieren – für den Gerätewechsel.</p>
+      <div class="settings-actions">
+        <button type="button" class="primary" id="settings-token-copy">Token kopieren</button>
+        <a class="secondary btn-link" id="settings-export" href="/api/v1/receipts/export?format=xlsx">Belege exportieren</a>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h3>Konto &amp; Daten</h3>
+      <label class="field">Land
+        <select id="settings-country"><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="CH">Schweiz</option></select>
+      </label>
+      <label class="switch" for="settings-business">
+        <input type="checkbox" id="settings-business">
+        <span>Geschäftliche Ausgaben erfassen (für Selbständige)</span>
+      </label>
+      <label class="switch" for="settings-share">
+        <input type="checkbox" id="settings-share" checked>
+        <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
+      </label>
+      <label class="field">Gast-Token wiederherstellen (Geräte- oder Browserwechsel)
+        <input type="text" id="settings-token-restore" autocomplete="off" placeholder="Früheren Token einfügen">
+      </label>
+      <div class="settings-actions">
+        <button type="button" class="secondary" id="settings-token-restore-btn">Token wiederherstellen</button>
+        <button type="button" class="secondary" id="settings-reset">Gast-Token neu erzeugen</button>
+      </div>
+      <p class="detail-note" id="settings-token-feedback" role="status" hidden></p>
+      <p class="detail-note" id="settings-storage-info"></p>
+      <button type="button" class="secondary" id="settings-clear-cache">Temporäre Caches leeren</button>
+    </section>
+
+    <section class="settings-section">
+      <h3>Allgemein</h3>
+      <label class="field">Monatsbudget (optional, €)
+        <input type="number" id="settings-budget" min="0" step="1" placeholder="z. B. 250">
+      </label>
+      <label class="field">Budgetbeginn (Tag des Monats, 1–28)
+        <input type="number" id="settings-budget-start" min="1" max="28" step="1" placeholder="z. B. 25 (Gehaltstag)">
+      </label>
+      <label class="switch" for="settings-doc-enhance">
+        <input type="checkbox" id="settings-doc-enhance" checked>
+        <span>Verbesserter Dokumentenscanner (Kontrast &amp; Schärfe für Thermopapier)</span>
+      </label>
+      <label class="switch" for="settings-haptics">
+        <input type="checkbox" id="settings-haptics" checked>
+        <span>Haptisches Feedback</span>
+      </label>
+      <label class="field">Eigener Vision-Anbieter (BYOK, optional)
+        <select id="settings-byok-provider">
+          <option value="openai_compatible">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="mistral">Mistral</option>
+          <option value="opencode">OpenCode</option>
+        </select>
+      </label>
+      <label class="field">Eigener Vision-API-Key (BYOK, optional)
+        <input type="password" id="settings-byok" autocomplete="off" placeholder="überspringt Scan-Limits">
+      </label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Erscheinungsbild</h3>
+      <label class="switch" for="settings-system-theme">
+        <input type="checkbox" id="settings-system-theme" checked>
+        <span>Systemeinstellung verwenden</span>
+      </label>
+      <button type="button" class="theme-switch" id="settings-theme-btn">
+        <span id="theme-icon" aria-hidden="true"></span>
+        <span id="theme-label">Mach das Licht aus</span>
+      </button>
+      <label class="switch" for="settings-colored-badges">
+        <input type="checkbox" id="settings-colored-badges" checked>
+        <span>Farbige Händler-Badges anzeigen (eigene Initialen, keine Markenlogos)</span>
+      </label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Info &amp; Hilfe</h3>
+      <div class="settings-actions">
+        <a class="secondary btn-link" href="/admin" target="_blank" rel="noopener">Admin</a>
+        <button type="button" class="secondary" id="settings-changelog">Versionshinweise (Changelog)</button>
+        <button type="button" class="secondary" id="settings-onboarding">Erste Schritte</button>
+      </div>
+      <p class="detail-note">100 % Open Source · Community-Kassenbons (anonymisiert) · Alle Angaben ohne Gewähr · Kein Datenverkauf</p>
+    </section>
+  </div>
+</div>
+
+<!-- Erste Schritte (Onboarding) -->
+<div class="modal-backdrop" id="onboarding-backdrop" hidden></div>
+<div class="modal modal--sheet" id="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" hidden>
+  <div class="modal-head">
+    <h2 id="onboarding-title">Erste Schritte</h2>
+    <button type="button" class="drawer-close" id="onboarding-close" aria-label="Schließen">×</button>
+  </div>
+  <div class="modal-body">
+    <p class="detail-note" id="onboarding-summary"></p>
+    <ul class="onboarding-steps" id="onboarding-steps"></ul>
+  </div>
+</div>
+
+<!-- Versionshinweise -->
+<div class="modal-backdrop" id="changelog-backdrop" hidden></div>
+<div class="modal modal--sheet" id="changelog-modal" role="dialog" aria-modal="true" aria-labelledby="changelog-title" hidden>
+  <div class="modal-head">
+    <h2 id="changelog-title">Versionshinweise</h2>
+    <button type="button" class="drawer-close" id="changelog-close" aria-label="Schließen">×</button>
+  </div>
+  <div class="modal-body">
+    <ul class="changelog-list">
+      <li><strong>Barcode &amp; Datenqualität</strong> – EAN-Zuordnung, Schnell-Scan und Community-Filter nach Kategorie.</li>
+      <li><strong>Budget</strong> – flexibler Budgetbeginn, dynamischer Ring mit Restbudget pro Tag und Rabatt-Modus.</li>
+      <li><strong>Startseite</strong> – kompakte Kacheln für Einstieg und Community-Beitrag.</li>
+      <li><strong>Einstellungen</strong> – Backup-Card, Theme-Schalter, Haptik und lokale SpeicherInfos.</li>
+    </ul>
   </div>
 </div>
 

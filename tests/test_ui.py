@@ -332,6 +332,39 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_phase_c_onboarding_theme_and_haptics_are_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    css = (FRONTEND / "css" / "styles.css").read_text()
+    state = (FRONTEND / "js" / "state.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+    receipts = (FRONTEND / "js" / "views" / "receipts.js").read_text()
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    listing = (FRONTEND / "js" / "views" / "list.js").read_text()
+
+    # Two dashboard tiles + onboarding/changelog modals.
+    assert 'id="dashboard-tiles"' in html
+    assert 'id="tile-onboarding"' in html and 'id="tile-community"' in html
+    assert 'id="onboarding-modal"' in html and 'id="changelog-modal"' in html
+    assert "onboarding-steps" in app and "Mach das Licht" in app
+    assert ".dashboard-tiles" in css
+    # Settings sections and appearance controls.
+    for key in ("settings-theme-btn", "settings-haptics",
+                "settings-colored-badges", "settings-storage-info",
+                "settings-clear-cache", "settings-changelog",
+                "settings-onboarding"):
+        assert 'id="' + key + '"' in html
+    assert ':root[data-theme="dark"]' in css
+    assert ".theme-switch" in css and ".store-badge" in css
+    assert "themeMode" in state
+    assert "applyTheme" in app
+    # Haptics on scan, save and list interaction; neutral badge styling.
+    assert "navigator.vibrate" in state
+    assert "NS.haptic()" in receipts and "NS.haptic()" in sheet
+    assert "NS.haptic()" in listing
+    assert "fairbon.onboarding.list_used" in listing
+    assert "store-badge" in receipts
+
+
 def test_dynamic_budget_ring_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     css = (FRONTEND / "css" / "styles.css").read_text()
@@ -425,7 +458,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v18" in sw
+    assert "fairbon-v19" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

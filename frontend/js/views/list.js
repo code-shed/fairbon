@@ -111,6 +111,9 @@
       remove.addEventListener("click", function () {
         NS.basket.splice(index, 1);
         NS.saveBasket();
+        NS.storage.set("fairbon.onboarding.list_used", true);
+        NS.haptic();
+        NS.emit("receipts-changed");
       });
       row.appendChild(remove);
       els.basketItems.appendChild(row);

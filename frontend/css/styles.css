@@ -42,7 +42,7 @@
     --z-toast: 70;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme]) {
       --bg: #0e1110;
       --surface: #161a18;
       --surface-alt: #1e2320;
@@ -61,6 +61,25 @@
       --info-bg: #12303f;
       --focus: #6fdcab;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1110;
+    --surface: #161a18;
+    --surface-alt: #1e2320;
+    --text: #e9eee9;
+    --muted: #9aa8a0;
+    --line: #2a302c;
+    --line-strong: #3a423c;
+    --accent: #3fc284;
+    --accent-soft: #16301f;
+    --accent-contrast: #052112;
+    --shadow: 0 1px 1px rgba(0, 0, 0, .5), 0 10px 30px rgba(0, 0, 0, .35);
+    --danger: #ff9188;
+    --amber: #f7cf6b;
+    --amber-bg: #372a09;
+    --info: #a9d6ef;
+    --info-bg: #12303f;
+    --focus: #6fdcab;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -1361,4 +1380,67 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
   width: 84px; height: 84px; margin: 4px auto 12px;
   border-radius: 50%; border: 8px solid var(--surface-alt);
   border-top-color: var(--accent); transform: rotate(-35deg);
+}
+
+
+/* --- Dashboard tiles & onboarding (Phase C) --------------------------- */
+.dashboard-tiles {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin: 12px 0;
+}
+.tile {
+  position: relative; display: flex; flex-direction: column; gap: 2px;
+  min-height: 96px; padding: 12px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); text-align: left;
+  font: inherit; box-shadow: var(--shadow);
+}
+.tile:hover { border-color: var(--accent); }
+.tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tile-label { font-size: .78rem; color: var(--muted); }
+.tile strong { font-size: 1.12rem; color: var(--accent); }
+.tile-sub { font-size: .74rem; color: var(--muted); }
+.tile-close {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 44px; min-height: 44px;
+  border: 0; background: none; color: var(--muted);
+  font-size: 1.3rem; cursor: pointer;
+}
+
+/* --- Settings sections, theme, info (Phase C) ------------------------ */
+.settings-section {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 0; border-top: 1px solid var(--line);
+}
+.settings-section:first-child { border-top: 0; padding-top: 0; }
+.settings-section h3 {
+  margin: 0; font-size: .86rem; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted);
+}
+.backup-card {
+  padding: 14px; border: 1px solid var(--accent);
+  border-radius: var(--radius); background: var(--accent-soft);
+}
+.theme-switch {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 56px; border-radius: var(--radius);
+  border: 1px solid var(--accent); background: var(--accent-soft);
+  color: var(--accent); font: inherit; font-weight: 650; cursor: pointer;
+}
+.theme-switch svg { width: 24px; height: 24px; }
+.onboarding-steps, .changelog-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.onboarding-steps li {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 48px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.onboarding-steps li.done { color: var(--muted); text-decoration: line-through; }
+.changelog-list li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .9rem; }
+.store-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px; border-radius: 8px;
+  color: #fff; font-size: .74rem; font-weight: 700;
 }

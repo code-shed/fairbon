@@ -160,6 +160,16 @@
       body.className = "receipt-main";
       var title = document.createElement("strong");
       title.textContent = NS.storeInfo(receipt.store).label;
+      if (NS.state.coloredBadges !== false) {
+        var info = NS.storeInfo(receipt.store);
+        var badge = document.createElement("span");
+        badge.className = "store-badge";
+        badge.style.background = info.bg;
+        badge.style.color = info.fg;
+        badge.textContent = String(info.label || "?").trim().slice(0, 2).toUpperCase();
+        title.insertBefore(badge, title.firstChild);
+        title.insertBefore(document.createTextNode(" "), badge.nextSibling);
+      }
       var meta = document.createElement("span");
       meta.textContent = [
         receipt.postal_code || "",
@@ -322,6 +332,7 @@
       if (!queue.length) { return; }
       NS.platform.scanBarcode().then(function (ean) {
         if (!ean) { return; }
+        NS.haptic();
         NS.api.postJson(
           "/api/v1/receipts/items/" + queue[0].id + "/link-barcode?preview=true",
           { ean: ean }

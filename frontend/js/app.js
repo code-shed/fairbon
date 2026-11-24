@@ -46,6 +46,140 @@
     });
   }
 
+  // --- appearance -------------------------------------------------------
+  function applyTheme() {
+    var mode = NS.state.themeMode || "system";
+    var root = document.documentElement;
+    if (mode === "system") { root.removeAttribute("data-theme"); }
+    else { root.setAttribute("data-theme", mode); }
+    var dark = mode === "dark" ||
+      (mode === "system" && global.matchMedia &&
+       global.matchMedia("(prefers-color-scheme: dark)").matches);
+    var label = $("theme-label");
+    if (label) { label.textContent = dark ? "Mach das Licht an" : "Mach das Licht aus"; }
+    var icon = $("theme-icon");
+    if (icon) {
+      icon.textContent = "";
+      var ns = "http://www.w3.org/2000/svg";
+      var svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("fill", "none");
+      svg.setAttribute("stroke", "currentColor");
+      svg.setAttribute("stroke-width", "1.8");
+      var shape = document.createElementNS(ns, dark ? "circle" : "path");
+      if (dark) {
+        shape.setAttribute("cx", "12");
+        shape.setAttribute("cy", "12");
+        shape.setAttribute("r", "8");
+      } else {
+        shape.setAttribute("d",
+          "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6l1.4 1.4" +
+          "m10 10 1.4 1.4m0-12.8L17 7M7 17l-1.4 1.4");
+      }
+      svg.appendChild(shape);
+      icon.appendChild(svg);
+    }
+  }
+
+  // --- onboarding checklist ---------------------------------------------
+  function onboardingTargets() {
+    return [
+      { text: "Ersten Bon oder eBon erfassen", key: "receipt" },
+      { text: "PLZ / Region festlegen", key: "plz" },
+      { text: "Ersten Artikel per Barcode verifizieren", key: "barcode" },
+      { text: "Einkaufsliste im Tab Liste testen", key: "list" },
+      { text: "Gast-Token einmal sichern (Backup)", key: "token" }
+    ];
+  }
+
+  function computeOnboarding() {
+    return NS.api.get("/api/v1/receipts").then(function (receipts) {
+      var hasBarcode = (receipts || []).some(function (receipt) {
+        return (receipt.items || []).some(function (item) { return !!item.ean; });
+      });
+      var plzSet = NS.storage.get("fairbon.plz", null) !== null;
+      var stepFlags = {
+        receipt: (receipts || []).length > 0,
+        plz: plzSet,
+        barcode: hasBarcode,
+        list: NS.storage.get("fairbon.onboarding.list_used", false) === true,
+        token: NS.state.tokenBackedUp === true
+      };
+      var saved = NS.state.onboardingSteps || {};
+      var steps = onboardingTargets().map(function (target) {
+        return {
+          text: target.text, key: target.key,
+          done: stepFlags[target.key] === true || saved[target.key] === true
+        };
+      });
+      NS.state.onboardingSteps = steps.reduce(function (all, step) {
+        all[step.key] = step.done;
+        return all;
+      }, {});
+      NS.storage.set("fairbon.onboarding_steps", NS.state.onboardingSteps);
+      if (steps.every(function (step) { return step.done; })) {
+        NS.state.onboardingDone = true;
+        NS.storage.set("fairbon.onboarding_done", true);
+      }
+      return steps;
+    }).catch(function () {
+      return onboardingTargets().map(function (target) {
+        return {
+          text: target.text, key: target.key,
+          done: NS.state.onboardingSteps[target.key] === true
+        };
+      });
+    });
+  }
+
+  function refreshOnboardingTile() {
+    computeOnboarding().then(function (steps) {
+      var done = steps.filter(function (step) { return step.done; }).length;
+      var progress = $("onboarding-progress");
+      if (progress) { progress.textContent = done + "/" + steps.length; }
+      var tile = $("tile-onboarding");
+      if (tile) { tile.hidden = NS.state.onboardingDone === true; }
+      NS.emit("onboarding-progress", { done: done, total: steps.length });
+    });
+  }
+
+  function openOnboarding() {
+    computeOnboarding().then(function (steps) {
+      var list = $("onboarding-steps");
+      var summary = $("onboarding-summary");
+      var done = steps.filter(function (step) { return step.done; }).length;
+      if (summary) { summary.textContent = done + " von " + steps.length + " erledigt"; }
+      if (!list) { return; }
+      list.textContent = "";
+      steps.forEach(function (step) {
+        var li = document.createElement("li");
+        if (step.done) { li.className = "done"; }
+        li.textContent = (step.done ? "✓ " : "○ ") + step.text;
+        list.appendChild(li);
+      });
+      $("onboarding-modal").hidden = false;
+      $("onboarding-backdrop").hidden = false;
+    });
+  }
+
+  function storageInfo() {
+    var count = 0;
+    var bytes = 0;
+    try {
+      for (var i = 0; i < global.localStorage.length; i += 1) {
+        var key = global.localStorage.key(i);
+        if (!key || key === "fairbon.owner_token.v1") { continue; }
+        count += 1;
+        bytes += (global.localStorage.getItem(key) || "").length;
+      }
+    } catch (e) { /* private mode */ }
+    var el = $("settings-storage-info");
+    if (el) {
+      el.textContent = count + " lokale Einträge · ca. " +
+        Math.round(bytes / 1024) + " KB im Browser gespeichert.";
+    }
+  }
+
   function bindSettings() {
     var modal = $("settings-modal");
     var backdrop = $("settings-backdrop");
@@ -57,6 +191,10 @@
     var share = $("settings-share");
     var business = $("settings-business");
     var docEnhance = $("settings-doc-enhance");
+    var systemTheme = $("settings-system-theme");
+    var themeBtn = $("settings-theme-btn");
+    var coloredBadges = $("settings-colored-badges");
+    var haptics = $("settings-haptics");
     var tokenCopy = $("settings-token-copy");
     var tokenRestore = $("settings-token-restore");
     var tokenRestoreBtn = $("settings-token-restore-btn");
@@ -70,7 +208,12 @@
 
     function copyToken() {
       var value = NS.ownerToken || "";
-      function done() { tokenMessage("Kopiert! ✓", false); }
+      function done() {
+        NS.state.tokenBackedUp = true;
+        NS.storage.set("fairbon.token_backed_up", true);
+        refreshOnboardingTile();
+        tokenMessage("Kopiert! ✓", false);
+      }
       function fallback() {
         var field = document.createElement("textarea");
         field.value = value;
@@ -97,6 +240,11 @@
       share.checked = NS.state.shareOptin === true;
       business.checked = NS.state.businessExpenses === true;
       docEnhance.checked = NS.state.docEnhance !== false;
+      systemTheme.checked = (NS.state.themeMode || "system") === "system";
+      coloredBadges.checked = NS.state.coloredBadges !== false;
+      haptics.checked = NS.state.haptics !== false;
+      storageInfo();
+      applyTheme();
     }
 
     function open() {
@@ -131,6 +279,67 @@
       budgetStart.value = String(day);
       NS.storage.set("fairbon.budget_start", day);
       NS.emit("receipts-changed");
+    });
+    systemTheme.addEventListener("change", function () {
+      NS.state.themeMode = systemTheme.checked ? "system" :
+        ((NS.state.themeMode === "dark") ? "dark" : "light");
+      NS.storage.set("fairbon.theme_mode", NS.state.themeMode);
+      applyTheme();
+    });
+    themeBtn.addEventListener("click", function () {
+      systemTheme.checked = false;
+      var dark = document.documentElement.getAttribute("data-theme") === "dark";
+      NS.state.themeMode = dark ? "light" : "dark";
+      NS.storage.set("fairbon.theme_mode", NS.state.themeMode);
+      applyTheme();
+      NS.haptic();
+    });
+    coloredBadges.addEventListener("change", function () {
+      NS.state.coloredBadges = coloredBadges.checked === true;
+      NS.storage.set("fairbon.colored_badges", NS.state.coloredBadges);
+      NS.emit("receipts-changed");
+    });
+    haptics.addEventListener("change", function () {
+      NS.state.haptics = haptics.checked === true;
+      NS.storage.set("fairbon.haptics", NS.state.haptics);
+      if (NS.state.haptics) { NS.haptic(); }
+    });
+    $("settings-clear-cache").addEventListener("click", function () {
+      if (!global.confirm("Temporäre App-Caches leeren? Deine Bons und der Token bleiben erhalten.")) {
+        return;
+      }
+      if (global.caches && global.caches.keys) {
+        global.caches.keys().then(function (keys) {
+          keys.filter(function (key) { return String(key).indexOf("fairbon") === 0; })
+            .forEach(function (key) { global.caches.delete(key); });
+        }).catch(function () { /* offline */ });
+      }
+      storageInfo();
+      tokenMessage("Caches geleert.", false);
+    });
+    $("settings-changelog").addEventListener("click", function () {
+      $("changelog-modal").hidden = false;
+      $("changelog-backdrop").hidden = false;
+    });
+    $("changelog-close").addEventListener("click", function () {
+      $("changelog-modal").hidden = true;
+      $("changelog-backdrop").hidden = true;
+    });
+    $("changelog-backdrop").addEventListener("click", function () {
+      $("changelog-modal").hidden = true;
+      $("changelog-backdrop").hidden = true;
+    });
+    $("settings-onboarding").addEventListener("click", function () {
+      close();
+      openOnboarding();
+    });
+    $("onboarding-close").addEventListener("click", function () {
+      $("onboarding-modal").hidden = true;
+      $("onboarding-backdrop").hidden = true;
+    });
+    $("onboarding-backdrop").addEventListener("click", function () {
+      $("onboarding-modal").hidden = true;
+      $("onboarding-backdrop").hidden = true;
     });
     byok.addEventListener("change", function () {
       NS.state.byok = byok.value.trim();
@@ -230,6 +439,40 @@
     NS.views.overview.init();
     NS.views.receipts.init();
     NS.components.addSheet.init();
+    applyTheme();
+    if (global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").addEventListener) {
+      global.matchMedia("(prefers-color-scheme: dark)").addEventListener(
+        "change", function () {
+          if ((NS.state.themeMode || "system") === "system") { applyTheme(); }
+        }
+      );
+    }
+    var onboardTile = $("tile-onboarding");
+    if (onboardTile) {
+      onboardTile.addEventListener("click", function (event) {
+        if (event.target && event.target.id === "tile-onboarding-close") { return; }
+        openOnboarding();
+      });
+      onboardTile.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") { openOnboarding(); }
+      });
+    }
+    var closeTile = $("tile-onboarding-close");
+    if (closeTile) {
+      closeTile.addEventListener("click", function () {
+        NS.state.onboardingDone = true;
+        NS.storage.set("fairbon.onboarding_done", true);
+        if (onboardTile) { onboardTile.hidden = true; }
+      });
+    }
+    var communityTile = $("tile-community");
+    if (communityTile) {
+      communityTile.addEventListener("click", function () {
+        NS.emit("tab", { tab: "prices" });
+      });
+    }
+    NS.on("receipts-changed", refreshOnboardingTile);
+    refreshOnboardingTile();
     switchTab(initialTab());
 
     if ("serviceWorker" in global.navigator) {

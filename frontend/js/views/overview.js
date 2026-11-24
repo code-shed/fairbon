@@ -150,6 +150,11 @@
     els.average.textContent = euro.format((data.average_cents || 0) / 100);
     els.count.textContent = String(data.receipt_count || 0);
     els.shared.textContent = String(data.shared_count || 0);
+    var communityCount = $("community-count");
+    if (communityCount) {
+      communityCount.textContent = String(data.shared_count || 0) +
+        " Preise geteilt";
+    }
 
     var budget = Number(NS.state.budget) || 0;
     var savings = (data.discount_cents || 0) / 100;

@@ -80,8 +80,24 @@
     shareOptin: NS.storage.get("fairbon.share_optin.v1", true) === true,
     businessExpenses: NS.storage.get("fairbon.business_expenses", false) === true,
     docEnhance: NS.storage.get("fairbon.doc_enhance", true) !== false,
+    themeMode: NS.storage.get("fairbon.theme_mode", "system"),
+    haptics: NS.storage.get("fairbon.haptics", true) !== false,
+    coloredBadges: NS.storage.get("fairbon.colored_badges", true) !== false,
+    tokenBackedUp: NS.storage.get("fairbon.token_backed_up", false) === true,
+    onboardingDone: NS.storage.get("fairbon.onboarding_done", false) === true,
+    onboardingSteps: NS.storage.get("fairbon.onboarding_steps", {}) || {},
     tab: "overview",
     month: ""
+  };
+
+  /** Short vibration where supported; silently ignored otherwise. */
+  NS.haptic = function () {
+    if (!NS.state.haptics) { return; }
+    try {
+      if (global.navigator && typeof global.navigator.vibrate === "function") {
+        global.navigator.vibrate(15);
+      }
+    } catch (e) { /* haptics are best effort */ }
   };
 
   NS.setPostalCode = function (value) {
