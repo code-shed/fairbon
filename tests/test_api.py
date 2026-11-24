@@ -178,6 +178,8 @@ def test_openapi_schema_lists_all_endpoints(client: TestClient) -> None:
         "/api/v1/admin/database/records/{table}/{record_id}",
         "/api/v1/receipts",
         "/api/v1/receipts/scan",
+        "/api/v1/receipts/backup",
+        "/api/v1/receipts/backup/import",
         "/api/v1/receipts/export",
         "/api/v1/receipts/stats",
         "/api/v1/receipts/{receipt_id}",

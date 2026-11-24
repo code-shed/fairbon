@@ -562,7 +562,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v38" in sw
+    assert "fairbon-v40" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -889,4 +889,28 @@ def test_delete_button_is_reused_and_token_wording_is_honest() -> None:
     delete_fn = receipts[start:receipts.index("function download")]
     assert delete_fn.count("button.disabled = false") >= 2  # success + error
     assert "nicht die Bons selbst" in html
-    assert "Zugriff merken" in app
+    assert "Zugriff oder Backup gesichert" in app
+
+
+def test_backup_export_import_is_in_settings() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+
+    for element in (
+        "settings-backup-export", "settings-backup-import", "settings-backup-file"
+    ):
+        assert 'id="' + element + '"' in html
+    assert "/api/v1/receipts/backup" in app
+    assert "/api/v1/receipts/backup/import" in app
+    assert "Zugriff oder Backup gesichert" in app
+
+
+def test_ean_dialog_matches_modal_padding_and_handles_escape() -> None:
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+    platform = (FRONTEND / "js" / "platform.js").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+
+    assert ".ean-modal { padding: 16px 20px 20px; }" in css
+    assert 'event.key === "Escape"' in platform
+    assert "stopPropagation()" in platform
+    assert ".ean-modal, .camera-overlay" in app

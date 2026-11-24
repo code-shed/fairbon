@@ -98,7 +98,7 @@
       { text: "PLZ / Region festlegen", key: "plz" },
       { text: "Ersten Artikel per Barcode verifizieren", key: "barcode" },
       { text: "Einkaufsliste im Tab Liste testen", key: "list" },
-      { text: "Gast-Token kopieren (Zugriff merken)", key: "token" }
+      { text: "Zugriff oder Backup gesichert", key: "token" }
     ];
   }
 
@@ -113,7 +113,8 @@
         plz: plzSet,
         barcode: hasBarcode,
         list: NS.storage.get("fairbon.onboarding.list_used", false) === true,
-        token: NS.state.tokenBackedUp === true
+        token: NS.state.tokenBackedUp === true ||
+          NS.state.backupExported === true
       };
       var saved = NS.state.onboardingSteps || {};
       var steps = onboardingTargets().map(function (target) {
@@ -205,6 +206,9 @@
     var themeBtn = $("settings-theme-btn");
     var haptics = $("settings-haptics");
     var tokenCopy = $("settings-token-copy");
+    var backupExport = $("settings-backup-export");
+    var backupImport = $("settings-backup-import");
+    var backupFile = $("settings-backup-file");
     var tokenRestore = $("settings-token-restore");
     var tokenRestoreBtn = $("settings-token-restore-btn");
     var tokenFeedback = $("settings-token-feedback");
@@ -384,6 +388,48 @@
       NS.storage.set("fairbon.business_expenses", NS.state.businessExpenses);
       NS.emit("receipts-changed");
     });
+    backupExport.addEventListener("click", function () {
+      backupExport.disabled = true;
+      NS.api.get("/api/v1/receipts/backup").then(function (data) {
+        var blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json"
+        });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = "fairbon-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        NS.state.backupExported = true;
+        NS.storage.set("fairbon.backup_exported", true);
+        refreshOnboardingTile();
+        tokenMessage("Backup heruntergeladen.", false);
+      }).catch(function (error) {
+        tokenMessage(error.message || "Backup fehlgeschlagen.", true);
+      }).then(function () { backupExport.disabled = false; });
+    });
+    backupImport.addEventListener("click", function () { backupFile.click(); });
+    backupFile.addEventListener("change", function () {
+      var file = backupFile.files && backupFile.files[0];
+      if (!file) { return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var payload;
+        try { payload = JSON.parse(reader.result); }
+        catch (e) { tokenMessage("Keine gültige Backup-Datei.", true); return; }
+        NS.api.postJson("/api/v1/receipts/backup/import", payload)
+          .then(function (result) {
+            tokenMessage(result.imported + " Bons wiederhergestellt.", false);
+            NS.emit("receipts-changed");
+          }).catch(function (error) {
+            tokenMessage(error.message || "Import fehlgeschlagen.", true);
+          });
+      };
+      reader.readAsText(file);
+      backupFile.value = "";
+    });
     tokenCopy.addEventListener("click", copyToken);
     tokenRestoreBtn.addEventListener("click", function () {
       var value = (tokenRestore.value || "").trim();
@@ -409,6 +455,10 @@
   function bindOverlayKeys() {
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") { return; }
+      // A nested scanner overlay owns Escape; don't close the receipt below.
+      if (document.querySelector(".ean-modal, .camera-overlay")) {
+        return;
+      }
       var targets = [
         ["add-modal", "add-close"],
         ["receipt-modal", "receipt-close"],

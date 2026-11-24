@@ -86,7 +86,15 @@
             stream = null;
           }
           if (overlay.parentNode) { document.body.removeChild(overlay); }
+          document.removeEventListener("keydown", onEscape);
         }
+        function onEscape(event) {
+          if (event.key !== "Escape") { return; }
+          event.preventDefault();
+          event.stopPropagation();
+          finish(null);
+        }
+        document.addEventListener("keydown", onEscape);
 
         function finish(file) {
           if (finished) { return; }
@@ -300,6 +308,11 @@
         });
         input.addEventListener("keydown", function (event) {
           if (event.key === "Enter") { ok.click(); }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            close(null);
+          }
         });
 
         actions.appendChild(cancel);
@@ -362,7 +375,15 @@
             stream = null;
           }
           if (overlay.parentNode) { document.body.removeChild(overlay); }
+          document.removeEventListener("keydown", onEscape);
         }
+        function onEscape(event) {
+          if (event.key !== "Escape") { return; }
+          event.preventDefault();
+          event.stopPropagation();
+          finish(null);
+        }
+        document.addEventListener("keydown", onEscape);
         function finish(value) {
           if (finished) { return; }
           finished = true;

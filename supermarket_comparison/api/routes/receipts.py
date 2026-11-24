@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated, Any, Final
 
 from fastapi import (
@@ -497,6 +497,137 @@ async def receipt_stats(
             reverse=True,
         ),
     }
+
+
+@router.get("/backup", summary="Alle eigenen Bons als JSON-Backup")
+async def export_backup(
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+) -> dict[str, Any]:
+    """Export every receipt and item of the owner — a real data backup.
+
+    Unlike the access token this contains the actual data (never the token).
+    """
+
+    owner_token = _owner_token(request)
+    receipts: list[dict[str, Any]] = []
+    for receipt in repository.user_receipts_for(owner_token):
+        entry = {
+            key: receipt.get(key)
+            for key in (
+                "store", "postal_code", "country_code", "currency",
+                "receipt_date", "total_cents", "shared_to_community",
+                "is_business",
+            )
+        }
+        entry["items"] = [
+            {
+                key: item.get(key)
+                for key in (
+                    "raw_text", "normalized_name", "brand", "category", "ean",
+                    "quantity", "unit", "unit_price_cents", "price_cents",
+                    "discount_cents", "deposit_cents", "vat_rate", "is_private",
+                )
+            }
+            for item in repository.user_receipt_items_for(int(receipt["id"]))
+        ]
+        receipts.append(entry)
+    return {"version": 1, "exported_at": datetime.now(UTC).isoformat(),
+            "receipts": receipts}
+
+
+@router.post("/backup/import", summary="JSON-Backup wiederherstellen")
+async def import_backup(
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+    payload: Annotated[dict[str, Any], Body()],
+) -> dict[str, int]:
+    """Restore receipts for the current owner; validates every field."""
+
+    owner_token = _owner_token(request)
+    if payload.get("version") != 1 or not isinstance(
+        payload.get("receipts"), list
+    ):
+        raise HTTPException(status_code=422, detail="Ungültiges Backup-Format.")
+    if len(payload["receipts"]) > 500:
+        raise HTTPException(status_code=422, detail="Backup zu groß (max. 500 Bons).")
+
+    imported = 0
+    item_count = 0
+    for raw_receipt in payload["receipts"]:
+        if not isinstance(raw_receipt, dict):
+            raise HTTPException(status_code=422, detail="Ungültiger Bon im Backup.")
+        raw_items = raw_receipt.get("items") or []
+        if not isinstance(raw_items, list) or len(raw_items) > 120:
+            raise HTTPException(status_code=422, detail="Zu viele Positionen im Bon.")
+        items: list[dict[str, Any]] = []
+        for raw_item in raw_items:
+            if not isinstance(raw_item, dict):
+                raise HTTPException(status_code=422, detail="Ungültige Position.")
+            name = str(raw_item.get("normalized_name") or "")[:200].strip()
+            if not name:
+                continue
+            try:
+                cents = int(raw_item.get("price_cents") or 0)
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=422, detail="Ungültiger Preis."
+                ) from exc
+            if not 0 <= cents <= 500_000:
+                raise HTTPException(
+                    status_code=422, detail="Preis außerhalb der Grenzen."
+                )
+            try:
+                vat = float(raw_item.get("vat_rate") or 0)
+            except (TypeError, ValueError):
+                vat = 0.0
+            try:
+                quantity = float(raw_item.get("quantity") or 1)
+            except (TypeError, ValueError):
+                quantity = 1.0
+            items.append(
+                {
+                    "raw_text": str(raw_item.get("raw_text") or "")[:200],
+                    "normalized_name": name,
+                    "brand": str(raw_item.get("brand") or "")[:200] or None,
+                    "category": normalize_category(raw_item.get("category")),
+                    "ean": str(raw_item.get("ean") or "")[:32] or None,
+                    "quantity": max(0.01, quantity),
+                    "unit": str(raw_item.get("unit") or "stueck")[:20],
+                    "unit_price_cents": raw_item.get("unit_price_cents"),
+                    "price_cents": cents,
+                    "discount_cents": int(raw_item.get("discount_cents") or 0),
+                    "deposit_cents": int(raw_item.get("deposit_cents") or 0),
+                    "vat_rate": vat,
+                    "is_private": bool(raw_item.get("is_private")),
+                }
+            )
+        date_text = str(raw_receipt.get("receipt_date") or "")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_text):
+            raise HTTPException(status_code=422, detail="Ungültiges Belegdatum.")
+        try:
+            total = int(raw_receipt.get("total_cents") or 0)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=422, detail="Ungültige Gesamtsumme."
+            ) from exc
+        if not 0 <= total <= 50_000_000:
+            raise HTTPException(status_code=422, detail="Summe außerhalb der Grenzen.")
+        repository.insert_user_receipt(
+            owner_token=owner_token,
+            store=str(raw_receipt.get("store") or "Sonstiges")[:100] or "Sonstiges",
+            postal_code=_normalize_plz(raw_receipt.get("postal_code")),
+            country_code=str(raw_receipt.get("country_code") or "DE")[:2],
+            currency=str(raw_receipt.get("currency") or "EUR")[:3],
+            receipt_date=date_text,
+            total_cents=total,
+            shared_to_community=bool(raw_receipt.get("shared_to_community")),
+            is_business=bool(raw_receipt.get("is_business")),
+            items=items,
+        )
+        imported += 1
+        item_count += len(items)
+    return {"imported": imported, "items": item_count}
 
 
 @router.get("/{receipt_id}", summary="Einen eigenen Kassenbon im Detail")

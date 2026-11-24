@@ -1365,6 +1365,9 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 }
 .item-editor .mini-btn { grid-column: 1 / -1; min-height: 44px; }
 .fix-link { display: block; margin: 10px auto 0; min-height: 44px; line-height: 44px; }
+.ean-modal { padding: 16px 20px 20px; }
+.ean-modal h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.ean-modal .detail-note { margin: 0 0 12px; }
 .ean-modal .field input { min-height: 44px; font-size: 1.05rem; letter-spacing: .04em; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 .modal-actions button { min-height: 44px; }

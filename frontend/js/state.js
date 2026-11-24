@@ -84,6 +84,7 @@
     themeMode: NS.storage.get("fairbon.theme_mode", "system"),
     haptics: NS.storage.get("fairbon.haptics", true) !== false,
     tokenBackedUp: NS.storage.get("fairbon.token_backed_up", false) === true,
+    backupExported: NS.storage.get("fairbon.backup_exported", false) === true,
     onboardingDone: NS.storage.get("fairbon.onboarding_done", false) === true,
     onboardingSteps: NS.storage.get("fairbon.onboarding_steps", {}) || {},
     tab: "overview",
