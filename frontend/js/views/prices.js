@@ -25,7 +25,6 @@
     els.query = $("query");
     els.postal = $("postal-code");
     els.precise = $("precise");
-    els.todayOnly = $("today-only");
     els.standard = $("standard");
     els.limit = $("limit");
     els.storeGrid = $("store-grid");
@@ -149,7 +148,6 @@
       "stores=" + encodeURIComponent(selectedStores().join(",")),
       "limit=" + encodeURIComponent(els.limit.value),
       "precise=" + (els.precise.checked ? "true" : "false"),
-      "today_only=" + (els.todayOnly.checked ? "true" : "false"),
       "include_standard=" + (els.standard.checked ? "true" : "false"),
       "offers_only=false"
     ];
@@ -547,7 +545,6 @@
           "stores=" + encodeURIComponent(selectedStores().join(",")),
           "limit=" + encodeURIComponent(els.limit.value),
           "precise=" + (els.precise.checked ? "true" : "false"),
-          "today_only=" + (els.todayOnly.checked ? "true" : "false"),
           "include_standard=" + (els.standard.checked ? "true" : "false")
         ];
         return NS.api.get("/api/v1/products/search/ranked?" + params.join("&"))

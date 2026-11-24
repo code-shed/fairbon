@@ -258,7 +258,8 @@ def test_markets_are_freely_enterable_and_filterable() -> None:
     assert 'id="add-store"' in html
     assert 'id="store-options"' in html
     assert "els.storeField.value.trim()" in sheet
-    assert "option.value = store.id" in sheet
+    assert "option.value = store.label" in sheet  # one name per market
+    assert "knownStore ? knownStore.id" in sheet
     # The price comparison filter grows with the user's own stores.
     assert "ownStoreIds" in prices
     assert 'NS.api.get("/api/v1/receipts")' in prices
@@ -330,6 +331,16 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "function submitReceipt" in sheet
     assert 'NS.api.get("/api/v1/receipts")' in sheet
     assert "A failed duplicate check must never block saving" in sheet
+
+
+def test_no_offer_validity_filter_in_the_search_ui() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    prices = (FRONTEND / "js" / "views" / "prices.js").read_text(encoding="utf-8")
+
+    assert 'id="today-only"' not in html
+    assert "Nur heute gültige Angebote" not in html
+    assert "todayOnly" not in prices
+    assert "today_only=" not in prices  # receipts have no offer window
 
 
 def test_camera_capture_has_guidance_and_file_fallback() -> None:
@@ -467,7 +478,10 @@ def test_barcode_quick_scan_flow_is_wired() -> None:
     assert "function fuzzyMatch" in receipts
     assert "function startQuickScan" in receipts
     assert "Barcode scannen" in receipts
-    assert "Stimmt hier etwas nicht?" in receipts
+    assert "Anpassen" in receipts
+    assert "Stimmt hier etwas nicht?" not in receipts
+    assert "receipt-store-options" in receipts  # store is editable
+    assert 'NS.api.patchJson("/api/v1/receipts/" + receipt.id' in receipts
     assert "price.replace(\".\", \",\")" in receipts  # search by price
     # Micro-contribution banner after saving.
     assert 'id="barcode-banner"' in html
@@ -526,7 +540,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v28" in sw
+    assert "fairbon-v32" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

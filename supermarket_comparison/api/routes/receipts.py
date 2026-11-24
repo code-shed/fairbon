@@ -532,6 +532,26 @@ async def delete_receipt(
 
 
 @router.patch(
+    "/{receipt_id}",
+    summary="Händler eines Bons korrigieren",
+)
+async def edit_receipt_store(
+    receipt_id: int,
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+    payload: Annotated[dict[str, Any], Body()],
+) -> dict[str, str]:
+    owner_token = _owner_token(request)
+    store = str(payload.get("store") or "").strip()[:100] or "Sonstiges"
+    updated = repository.update_user_receipt(
+        receipt_id=receipt_id, owner_token=owner_token, store=store
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
+    return {"store": str(updated["store"])}
+
+
+@router.patch(
     "/{receipt_id}/items/{item_id}",
     summary="Privat-Markierung einer Bon-Zeile setzen",
 )

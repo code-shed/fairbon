@@ -480,6 +480,15 @@ class Repository:
         )
         return dict(row) if row else None
 
+    def update_user_receipt(
+        self, *, receipt_id: int, owner_token: str, store: str
+    ) -> dict[str, Any] | None:
+        self.db.execute(
+            "UPDATE user_receipts SET store = ? WHERE id = ? AND owner_token = ?",
+            (store, int(receipt_id), owner_token),
+        )
+        return self.user_receipt(receipt_id=receipt_id, owner_token=owner_token)
+
     def delete_user_receipt(self, *, receipt_id: int, owner_token: str) -> bool:
         cursor = self.db.execute(
             "DELETE FROM user_receipts WHERE id = ? AND owner_token = ?",

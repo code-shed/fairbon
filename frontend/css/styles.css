@@ -1286,17 +1286,6 @@ input, select, textarea { font-size: 16px; }
   grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px;
   margin-top: 4px;
 }
-.item-editor {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  padding: 8px 0 4px;
-}
-.item-editor input,
-.item-editor select {
-  min-width: 0; padding: 8px 10px; min-height: 40px;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface); color: var(--text);
-}
-.item-editor .item-private { grid-column: 1 / -1; font-size: .8rem; }
 .add-summary {
   margin: 12px 0; padding: 12px 14px;
   background: var(--surface-alt); border-radius: var(--radius-sm);
@@ -1346,14 +1335,26 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 .barcode-banner > span { flex: 1 1 240px; }
 .barcode-banner .mini-btn { min-height: 44px; }
 .item-editor {
-  display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
   padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--surface-alt);
 }
-.item-editor input, .item-editor select {
-  min-height: 44px; width: 100%; font: inherit;
+.item-editor > :first-child,
+.item-editor select[aria-label="Kategorie"] { grid-column: 1 / -1; }
+.item-editor input[type="text"],
+.item-editor input[type="number"],
+.item-editor select {
+  min-height: 44px; width: 100%; min-width: 0; font: inherit;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text); padding: 8px;
+  background: var(--surface); color: var(--text); padding: 8px 10px;
+}
+.item-editor .item-private {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;
+  min-height: 44px; font-size: .84rem;
+}
+.item-editor .item-private input[type="checkbox"] {
+  width: 20px; height: 20px; min-height: 20px; padding: 0; flex: none;
+  accent-color: var(--accent); background: transparent; cursor: pointer;
 }
 .item-editor .mini-btn { grid-column: 1 / -1; min-height: 44px; }
 .fix-link { display: block; margin: 10px auto 0; min-height: 44px; line-height: 44px; }

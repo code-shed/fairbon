@@ -453,7 +453,7 @@
     var fix = document.createElement("button");
     fix.type = "button";
     fix.className = "btn-link fix-link";
-    fix.textContent = "Stimmt hier etwas nicht?";
+    fix.textContent = "Anpassen";
     fix.addEventListener("click", function () { toggleEdit(receipt); });
     els.items.appendChild(fix);
   }
@@ -471,6 +471,49 @@
       });
       return;
     }
+    // Store is a receipt-level field: edit it once, not per item.
+    var storeBox = document.createElement("li");
+    storeBox.className = "item-editor receipt-store-editor";
+    var storeLabel = document.createElement("label");
+    storeLabel.className = "field";
+    storeLabel.textContent = "Markt";
+    var storeInput = document.createElement("input");
+    storeInput.type = "text";
+    storeInput.value = receipt.store || "";
+    storeInput.setAttribute("list", "receipt-store-options");
+    storeInput.setAttribute("aria-label", "Markt");
+    storeLabel.appendChild(storeInput);
+    var storeList = document.createElement("datalist");
+    storeList.id = "receipt-store-options";
+    NS.STORES.forEach(function (store) {
+      var option = document.createElement("option");
+      option.value = store.label;  // one visible name per market
+      storeList.appendChild(option);
+    });
+    var storeSave = document.createElement("button");
+    storeSave.type = "button";
+    storeSave.className = "mini-btn";
+    storeSave.textContent = "Markt speichern";
+    storeSave.addEventListener("click", function () {
+      storeSave.disabled = true;
+      var value = storeInput.value.trim() || "Sonstiges";
+      NS.api.patchJson("/api/v1/receipts/" + receipt.id, { store: value })
+        .then(function () {
+          receipt.store = value;
+          $("receipt-title").textContent = NS.storeInfo(value).label;
+          load();
+          renderItems(receipt);
+        }).catch(function (error) {
+          storeSave.disabled = false;
+          $("receipt-error").hidden = false;
+          $("receipt-error").textContent = error.message || "Markt nicht gespeichert.";
+        });
+    });
+    storeBox.appendChild(storeLabel);
+    storeBox.appendChild(storeList);
+    storeBox.appendChild(storeSave);
+    els.items.appendChild(storeBox);
+
     receipt.items.forEach(function (item) {
       var box = document.createElement("li");
       box.className = "item-editor";

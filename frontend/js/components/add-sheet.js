@@ -73,8 +73,9 @@
     if (storeOptions && !storeOptions.options.length) {
       NS.STORES.forEach(function (store) {
         var option = document.createElement("option");
-        option.value = store.id;
-        option.label = store.label;
+        // Native datalists show value and label as two lines: one visible
+        // name per store avoids the duplicate lowercase/capitalised entries.
+        option.value = store.label;
         storeOptions.appendChild(option);
       });
     }
@@ -551,9 +552,16 @@
     }
     var total = totalCents();
     var data = new FormData();
+    var typedStore = els.storeField.value.trim();
+    var knownStore = null;
+    NS.STORES.forEach(function (store) {
+      if (store.label.toLowerCase() === typedStore.toLowerCase()) {
+        knownStore = store;
+      }
+    });
     data.append(
       "store",
-      els.storeField.value.trim() || (scanned && scanned.store) || "Sonstiges"
+      knownStore ? knownStore.id : (typedStore || (scanned && scanned.store) || "Sonstiges")
     );
     data.append(
       "postal_code",

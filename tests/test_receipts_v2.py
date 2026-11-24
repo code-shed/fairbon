@@ -1376,3 +1376,35 @@ def test_community_optin_only_shares_price_relevant_categories(
     # All eight lines remain in the private household book.
     receipt_id = response.json()["receipt_id"]
     assert len(repository.user_receipt_items_for(receipt_id)) == 8
+
+
+def test_receipt_store_can_be_corrected(
+    client: TestClient, repository: Repository
+) -> None:
+    receipt_id = repository.insert_user_receipt(
+        owner_token=OWNER,
+        store="Sonstiges",
+        postal_code="65618",
+        country_code="DE",
+        currency="EUR",
+        receipt_date="2026-11-22",
+        total_cents=499,
+        shared_to_community=False,
+        items=[],
+    )
+
+    response = client.patch(
+        f"{PREFIX}/receipts/{receipt_id}", json={"store": "media markt"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["store"] == "media markt"
+    stored = repository.user_receipt(receipt_id=receipt_id, owner_token=OWNER)
+    assert stored["store"] == "media markt"
+
+    foreign = client.patch(
+        f"{PREFIX}/receipts/{receipt_id}",
+        json={"store": "x"},
+        headers={"X-Owner-Token": "other-owner-token-1234"},
+    )
+    assert foreign.status_code == 404
