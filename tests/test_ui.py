@@ -567,7 +567,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v46" in sw
+    assert "fairbon-v48" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -1007,3 +1007,12 @@ def test_basket_empty_state_is_left_aligned() -> None:
     # The drawer's 20px horizontal padding must not indent card content.
     override = css.split(".basket-card .basket-items {", 1)[1].split("}", 1)[0]
     assert "padding: 0" in override
+
+    # The card itself must use the same inner spacing as the shopping card.
+    card = css.split(".basket-card {", 1)[1].split("}", 1)[0]
+    assert "padding: 18px 20px" in card
+    assert "display: grid" in card and "gap: 12px" in card
+    assert "justify-items: start" in card
+
+    items = css.split(".basket-card .basket-items {", 1)[1].split("}", 1)[0]
+    assert "width: 100%" in items

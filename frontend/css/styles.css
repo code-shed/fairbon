@@ -897,7 +897,10 @@
     padding: 8px 0 0; text-wrap: pretty;
   }
   /* The basket now lives in a card, not in the old right-hand drawer. */
-  .basket-card .basket-items { padding: 0; }
+  .basket-card {
+    padding: 18px 20px; display: grid; gap: 12px; justify-items: start;
+  }
+  .basket-card .basket-items { width: 100%; padding: 0; }
   .basket-row {
     display: grid; gap: 4px;
     padding: 12px 0;
