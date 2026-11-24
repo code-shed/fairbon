@@ -893,9 +893,11 @@
   .drawer-close:hover { background: var(--surface-alt); color: var(--text); }
   .basket-items { flex: 1 1 auto; overflow-y: auto; padding: 12px 20px; }
   .basket-empty {
-    color: var(--muted); text-align: center;
-    padding: 28px 6px; text-wrap: pretty;
+    color: var(--muted); text-align: left;
+    padding: 8px 0 0; text-wrap: pretty;
   }
+  /* The basket now lives in a card, not in the old right-hand drawer. */
+  .basket-card .basket-items { padding: 0; }
   .basket-row {
     display: grid; gap: 4px;
     padding: 12px 0;
