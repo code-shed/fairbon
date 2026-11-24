@@ -1135,7 +1135,7 @@ input, select, textarea { font-size: 16px; }
   border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer;
 }
 .danger { color: var(--danger); }
-.settings-body { display: flex; flex-direction: column; gap: 14px; }
+.settings-body { display: flex; flex-direction: column; gap: 6px; }
 .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* Bottom sheets */
@@ -1408,7 +1408,7 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 /* --- Settings sections, theme, info (Phase C) ------------------------ */
 .settings-section {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 12px 0; border-top: 1px solid var(--line);
+  padding: 4px 0; border-top: 1px solid var(--line);
 }
 .settings-section:first-child { border-top: 0; padding-top: 0; }
 .settings-section h3 {
@@ -1416,7 +1416,7 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
   letter-spacing: .06em; color: var(--muted);
 }
 .backup-card {
-  padding: 14px; border: 1px solid var(--accent);
+  padding: 12px; border: 1px solid var(--accent);
   border-radius: var(--radius); background: var(--accent-soft);
 }
 .theme-switch {
@@ -1461,7 +1461,7 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 /* --- Settings accordion ------------------------------------------------ */
 .settings-section-toggle {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; width: 100%; min-height: 48px; padding: 8px 2px;
+  gap: 12px; width: 100%; min-height: 44px; padding: 4px 2px;
   border: 0; background: none; color: var(--text);
   font: inherit; font-size: .95rem; font-weight: 600;
   text-align: left; cursor: pointer;
@@ -1535,3 +1535,61 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 .camera-manual { position: absolute; left: 50%; transform: translateX(-50%);
   bottom: calc(28px + env(safe-area-inset-bottom)); }
 .camera-overlay .camera-cancel { right: 16px; left: auto; }
+.receipts-search-wrap { position: relative; flex: 1 1 240px; min-width: 0; }
+.receipts-search-wrap input { padding-right: 48px !important; }
+#receipts-search-clear {
+  position: absolute; right: 4px; top: 4px;
+  min-width: 40px; min-height: 40px;
+  border: 0; background: none; color: var(--muted);
+  font-size: 1.4rem; cursor: pointer;
+}
+/* FAB must never cover the last filter row on small screens. */
+#tab-prices { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+form.search label.switch { flex-wrap: wrap; white-space: normal; overflow-wrap: anywhere; }
+.duplicate-warning {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 10px 0; padding: 10px 12px;
+  border: 1px solid var(--amber); border-radius: var(--radius-sm);
+  background: var(--amber-bg); color: var(--text); font-size: .86rem;
+}
+.duplicate-warning > span { flex: 1 1 100%; }
+.duplicate-warning button { min-height: 44px; }
+.duplicate-warning {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 10px 0; padding: 10px 12px;
+  border: 1px solid var(--amber); border-radius: var(--radius-sm);
+  background: var(--amber-bg); color: var(--text); font-size: .86rem;
+}
+.duplicate-warning > span { flex: 1 1 100%; }
+.duplicate-warning button { min-height: 44px; }
+.offline-badge {
+  align-self: center; padding: 4px 10px; border-radius: 999px;
+  background: var(--amber-bg); color: var(--amber);
+  font-size: .75rem; font-weight: 700;
+}
+.offline-badge[hidden] { display: none; }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 80;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow); color: var(--text); font-size: .88rem;
+}
+.toast[hidden] { display: none; }
+.toast button { min-height: 44px; font: inherit; color: var(--accent); background: none; border: 0; font-weight: 700; cursor: pointer; }
+.share-details {
+  margin: 8px 0; padding: 8px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); background: var(--surface-alt);
+  font-size: .82rem;
+}
+.share-details[hidden] { display: none; }
+.share-details summary { cursor: pointer; min-height: 32px; color: var(--muted); }
+.share-details ul { margin: 6px 0 0; padding-left: 18px; }
+/* Switch labels may wrap instead of overflowing narrow grid cells. */
+form.search label.switch {
+  grid-column: 1 / -1; max-width: 100%; min-width: 0;
+  white-space: normal; overflow-wrap: anywhere;
+}
+form.search label.switch span { min-width: 0; }

@@ -35,6 +35,7 @@ from fastapi import (
 from ...config import get_settings
 from ...normalization.categories import RECEIPT_CATEGORIES, normalize_category
 from ...normalization.matcher import normalize_title
+from ...normalization.stores import normalize_store
 from ...services.barcode import is_ambiguous_term, lookup_barcode
 from ...services.budget import budget_period
 from ...services.pdf_pages import MAX_PDF_PAGES, PdfUnreadable, pdf_page_images
@@ -52,6 +53,7 @@ from ...services.upload_security import (
     ImageSanitizeError,
     UnsupportedReceipt as _UnsupportedReceipt,
     UploadTooLarge,
+    is_plain_text,
     sanitize,
 )
 from ...storage import Repository
@@ -110,6 +112,38 @@ def _normalize_plz(value: str | None) -> str | None:
     if not _PLZ_RE.fullmatch(cleaned):
         return None
     return cleaned
+
+
+def _text_scan_payload(parsed: Any) -> dict[str, Any]:
+    """Map a local text parse to the same shape vision/PDF previews use."""
+
+    items = []
+    for item in parsed.items:
+        price_cents = round(float(item.price or 0) * 100)
+        items.append(
+            {
+                "raw_text": item.raw_line or item.name,
+                "normalized_name": item.name,
+                "brand": None,
+                "category": "Sonstiges",
+                "quantity": item.quantity or 1.0,
+                "unit": item.unit or "stueck",
+                "price_cents": price_cents,
+                "unit_price_cents": None,
+                "discount_cents": 0,
+                "deposit_cents": 0,
+                "vat_rate": None,
+                "is_private": False,
+            }
+        )
+    return {
+        "store": parsed.store,
+        "postal_code": parsed.postal_code,
+        "total": parsed.total,
+        "total_cents": round(float(parsed.total or 0) * 100),
+        "items": items,
+        "warnings": list(parsed.warnings),
+    }
 
 
 async def _scan_upload(
@@ -372,6 +406,18 @@ async def scan_receipt(
         raise HTTPException(status_code=413, detail="Upload zu groß (max. 3 MB).")
 
     data = await file.read()
+    # Plain-text eBon receipts never enter the image/PDF sanitizer (and
+    # never reach a paid vision provider).
+    if is_plain_text(data, file.content_type, file.filename):
+        try:
+            extraction = extract_text(
+                data, filename=file.filename or "", content_type="text/plain"
+            )
+        except OcrUnavailable as exc:  # pragma: no cover - no OCR for text
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        payload = _text_scan_payload(parse_receipt_text(extraction.text))
+        return {**payload, "engine": extraction.engine}
+
     result = await _scan_upload(
         request,
         data=data,
@@ -615,7 +661,7 @@ async def import_backup(
             raise HTTPException(status_code=422, detail="Summe außerhalb der Grenzen.")
         repository.insert_user_receipt(
             owner_token=owner_token,
-            store=str(raw_receipt.get("store") or "Sonstiges")[:100] or "Sonstiges",
+            store=normalize_store(str(raw_receipt.get("store") or "")[:100]),
             postal_code=_normalize_plz(raw_receipt.get("postal_code")),
             country_code=str(raw_receipt.get("country_code") or "DE")[:2],
             currency=str(raw_receipt.get("currency") or "EUR")[:3],
@@ -671,15 +717,30 @@ async def edit_receipt_store(
     request: Request,
     repository: Annotated[Repository, Depends(get_repository)],
     payload: Annotated[dict[str, Any], Body()],
-) -> dict[str, str]:
+) -> dict[str, Any]:
     owner_token = _owner_token(request)
-    store = str(payload.get("store") or "").strip()[:100] or "Sonstiges"
+    fields: dict[str, Any] = {}
+    if "store" in payload:
+        fields["store"] = str(payload["store"] or "").strip()[:100] or "Sonstiges"
+    if "receipt_date" in payload:
+        date_text = str(payload["receipt_date"] or "")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_text):
+            raise HTTPException(status_code=422, detail="Ungültiges Belegdatum.")
+        fields["receipt_date"] = date_text
+    if "total_cents" in payload:
+        try:
+            total = int(payload["total_cents"])
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail="Ungültige Summe.") from exc
+        if not 0 <= total <= 50_000_000:
+            raise HTTPException(status_code=422, detail="Summe außerhalb der Grenzen.")
+        fields["total_cents"] = total
     updated = repository.update_user_receipt(
-        receipt_id=receipt_id, owner_token=owner_token, store=store
+        receipt_id=receipt_id, owner_token=owner_token, fields=fields
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
-    return {"store": str(updated["store"])}
+    return {key: updated.get(key) for key in fields} or {"ok": True}
 
 
 @router.patch(
@@ -898,9 +959,7 @@ async def save_receipt(
     for item in items:
         item["category"] = normalize_category(item.get("category"))
 
-    clean_store = store.strip()
-    if not clean_store:
-        clean_store = "Sonstiges"
+    clean_store = normalize_store(store)
     plz = _normalize_plz(postal_code)
 
     # A demo receipt is never shared, even if a client sends share=true.

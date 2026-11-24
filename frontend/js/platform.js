@@ -290,11 +290,19 @@
         error.className = "form-error";
         error.hidden = true;
 
+        function onEscape(event) {
+          if (event.key !== "Escape") { return; }
+          event.preventDefault();
+          event.stopPropagation();
+          close(null);
+        }
         function close(value) {
           if (backdrop.parentNode) { document.body.removeChild(backdrop); }
           if (box.parentNode) { document.body.removeChild(box); }
+          document.removeEventListener("keydown", onEscape);
           resolve(value);
         }
+        document.addEventListener("keydown", onEscape);
         cancel.addEventListener("click", function () { close(null); });
         backdrop.addEventListener("click", function () { close(null); });
         ok.addEventListener("click", function () {

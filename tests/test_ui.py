@@ -325,8 +325,12 @@ def test_guest_token_backup_is_wired() -> None:
 
 def test_duplicate_warning_is_non_blocking() -> None:
     sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
 
-    assert "Trotzdem speichern?" in sheet
+    assert "Ein ähnlicher Bon existiert bereits." in html
+    assert "Trotzdem speichern" in html
+    assert "showDuplicateWarning" in sheet
+    assert "els.save.disabled = false" in sheet
     assert "function checkDuplicate" in sheet
     assert "function submitReceipt" in sheet
     assert 'NS.api.get("/api/v1/receipts")' in sheet
@@ -391,11 +395,12 @@ def test_settings_sections_are_collapsible() -> None:
     assert ".settings-section-toggle" in css
 
 
-def test_clearing_the_basket_asks_for_confirmation() -> None:
+def test_clearing_the_basket_has_undo_toast() -> None:
     listing = (FRONTEND / "js" / "views" / "list.js").read_text()
 
     assert "basketClear.addEventListener" in listing
-    assert "Merkliste wirklich leeren?" in listing
+    assert "Merkliste geleert – rückgängig" in listing
+    assert "NS.toast(" in listing
 
 
 def test_no_retailer_savings_claims_in_the_ui() -> None:
@@ -500,7 +505,7 @@ def test_barcode_quick_scan_flow_is_wired() -> None:
     assert "receipt-store-options" in receipts  # store is editable
     assert 'NS.api.patchJson("/api/v1/receipts/" + receipt.id' in receipts
     assert "Position gespeichert." in receipts
-    assert "Markt gespeichert." in receipts
+    assert "Bon-Daten gespeichert." in receipts
     assert 'id="receipt-feedback"' in (
         FRONTEND / "index.html"
     ).read_text(encoding="utf-8")
@@ -562,15 +567,15 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v40" in sw
+    assert "fairbon-v42" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
     html = client.get("/").text
 
     assert "100 % Open Source" in html
-    assert "Community-Kassenbons (anonymisiert)" in html
-    assert "Kein Datenverkauf" in html
+    assert "Alle Angaben ohne Gewähr" in html
+    assert "100 % Open Source · Alle Angaben ohne Gewähr" in html
 
 
 def test_admin_link_exists_in_settings(client: TestClient) -> None:
@@ -914,3 +919,28 @@ def test_ean_dialog_matches_modal_padding_and_handles_escape() -> None:
     assert 'event.key === "Escape"' in platform
     assert "stopPropagation()" in platform
     assert ".ean-modal, .camera-overlay" in app
+
+
+def test_prebeta_quick_wins_are_wired() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+    api = (FRONTEND / "js" / "api.js").read_text(encoding="utf-8")
+    receipts = (FRONTEND / "js" / "views" / "receipts.js").read_text(
+        encoding="utf-8"
+    )
+    listing = (FRONTEND / "js" / "views" / "list.js").read_text(encoding="utf-8")
+    prices = (FRONTEND / "js" / "views" / "prices.js").read_text(encoding="utf-8")
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="toast"' in html and "NS.toast =" in app
+    assert "Bon gelöscht – rückgängig" in receipts
+    assert "Merkliste geleert – rückgängig" in listing
+    assert 'id="offline-badge"' in html
+    assert 'NS.emit("api-offline")' in api
+    assert 'id="share-details"' in html and "renderSharePreview" in sheet
+    assert "Alle Artikel auf Liste" in receipts
+    assert "Spracheingabe in diesem Browser nicht verfügbar" in prices
+    assert "Spracheingabe in diesem Browser nicht verfügbar" in listing
+    assert "bindShortcuts" in app

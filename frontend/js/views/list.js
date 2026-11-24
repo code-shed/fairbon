@@ -24,11 +24,14 @@
 
     els.basketClear.addEventListener("click", function () {
       if (!NS.basket.length) { return; }
-      if (!global.confirm(
-        "Merkliste wirklich leeren? " + NS.basket.length +
-        " gemerkte Artikel werden entfernt."
-      )) { return; }
+      var previous = NS.basket.slice();
       NS.clearBasket();
+      NS.toast("Merkliste geleert – rückgängig", "Rückgängig", function (undo) {
+        if (!undo) { return; }
+        NS.basket = previous;
+        NS.saveBasket();
+        NS.emit("basket-changed");
+      });
     });
     els.basketOptimize.addEventListener("click", optimize);
     els.apply.addEventListener("click", applyList);
@@ -258,6 +261,11 @@
 
   // --- speech -----------------------------------------------------------
   function startSpeech() {
+    if (!global.SpeechRecognition && !global.webkitSpeechRecognition) {
+      NS.toast("Spracheingabe in diesem Browser nicht verfügbar");
+      return;
+    }
+
     var Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
     if (!Recognition) { return; }
     var recognition = new Recognition();

@@ -119,6 +119,7 @@
 
   function networkError(error) {
     if (error instanceof TypeError) {
+      if (NS.emit) { NS.emit("api-offline"); }
       throw new Error("Keine Verbindung zum Server. Bitte später erneut versuchen.");
     }
     throw error;
@@ -138,6 +139,7 @@
         error.data = data;
         throw error;
       }
+      if (NS.emit) { NS.emit("api-online"); }
       return data;
     });
   }

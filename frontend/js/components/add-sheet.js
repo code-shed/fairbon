@@ -43,6 +43,9 @@
     els.business = $("add-business");
     els.warnings = $("add-warnings");
     els.communityHint = $("community-auto-hint");
+    els.duplicate = $("add-duplicate");
+    els.shareDetails = $("share-details");
+    els.sharePreview = $("share-preview-list");
     els.skip = $("add-skip");
     if (!els.modal) { return; }
 
@@ -355,6 +358,7 @@
     els.banner.hidden = !(fromDemo && !NS.storage.get(DEMO_BANNER_KEY, false));
 
     if (els.addItem) { els.addItem.hidden = !manualMode; }
+    renderSharePreview();
     items.forEach(function (item, index) {
       var row = renderRow(item, index);
       if (manualMode) {
@@ -401,6 +405,28 @@
       return;
     }
     close();
+  }
+
+  function renderSharePreview() {
+    if (!els.shareDetails || !els.sharePreview) { return; }
+    var sharing = NS.state.shareOptin === true ||
+      (NS.state.requireCommunitySharing === true && !NS.state.byok);
+    var relevant = ["Lebensmittel", "Getränke", "Drogerie", "Haushalt"];
+    var rows = isDemo || !sharing
+      ? []
+      : items.filter(function (item) {
+          return relevant.indexOf(item.category || "Sonstiges") >= 0;
+        });
+    els.shareDetails.hidden = !rows.length;
+    els.sharePreview.textContent = "";
+    rows.forEach(function (item) {
+      var li = document.createElement("li");
+      li.textContent = (item.normalized_name || item.raw_text || "Artikel") +
+        " · " + euro.format((item.price_cents || 0) / 100) +
+        " · " + (els.storeField.value.trim() || (scanned && scanned.store) || "") +
+        " · " + (scanned && scanned.postal_code ? scanned.postal_code : NS.state.postalCode);
+      els.sharePreview.appendChild(li);
+    });
   }
 
   function renderRow(item, index) {
@@ -640,15 +666,34 @@
       String(data.get("receipt_date") || ""),
       Number(data.get("total_cents") || 0)
     ).then(function (duplicate) {
-      if (duplicate && !global.confirm(
-        "Ein Bon mit gleichem Händler, Datum und Betrag existiert bereits. " +
-        "Trotzdem speichern?"
-      )) { return; }
+      if (duplicate) {
+        showDuplicateWarning(function (confirmed) {
+          if (confirmed) { submitReceipt(data, demoFlag); }
+          else { els.save.disabled = false; }
+        });
+        return;
+      }
       submitReceipt(data, demoFlag);
     }).catch(function () {
       // A failed duplicate check must never block saving.
       submitReceipt(data, demoFlag);
     });
+  }
+
+  function showDuplicateWarning(done) {
+    els.duplicate.hidden = false;
+    var cancel = $("duplicate-cancel");
+    var proceed = $("duplicate-continue");
+    function close(confirmed) {
+      els.duplicate.hidden = true;
+      cancel.removeEventListener("click", onCancel);
+      proceed.removeEventListener("click", onProceed);
+      done(confirmed);
+    }
+    function onCancel() { close(false); }
+    function onProceed() { close(true); }
+    cancel.addEventListener("click", onCancel);
+    proceed.addEventListener("click", onProceed);
   }
 
   function checkDuplicate(store, date, total) {

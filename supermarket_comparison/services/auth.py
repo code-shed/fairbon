@@ -34,9 +34,10 @@ PUBLIC_PATHS: Final = frozenset(
         "/login",
         "/logout",
         "/robots.txt",
-        # The PWA manifest carries only app branding; browsers fetch it
-        # without cookies, so the gate would otherwise block installability.
+        # Manifest and worker carry only app branding / the public shell
+        # cache list; browsers fetch them without cookies.
         "/manifest.webmanifest",
+        "/sw.js",
     }
 )
 

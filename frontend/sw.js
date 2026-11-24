@@ -1,5 +1,5 @@
 /* FairBon service worker — offline shell, API stays network-only. */
-var CACHE = "fairbon-v40";
+var CACHE = "fairbon-v42";
 var SHELL = [
   "./",
   "./css/styles.css",

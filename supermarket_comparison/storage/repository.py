@@ -481,12 +481,17 @@ class Repository:
         return dict(row) if row else None
 
     def update_user_receipt(
-        self, *, receipt_id: int, owner_token: str, store: str
+        self, *, receipt_id: int, owner_token: str, fields: dict[str, Any]
     ) -> dict[str, Any] | None:
-        self.db.execute(
-            "UPDATE user_receipts SET store = ? WHERE id = ? AND owner_token = ?",
-            (store, int(receipt_id), owner_token),
-        )
+        allowed = {"store", "receipt_date", "total_cents"}
+        updates = {key: value for key, value in fields.items() if key in allowed}
+        if updates:
+            clause = ", ".join(f"{key} = ?" for key in updates)
+            self.db.execute(
+                f"UPDATE user_receipts SET {clause}"
+                " WHERE id = ? AND owner_token = ?",
+                (*updates.values(), int(receipt_id), owner_token),
+            )
         return self.user_receipt(receipt_id=receipt_id, owner_token=owner_token)
 
     def delete_user_receipt(self, *, receipt_id: int, owner_token: str) -> bool:

@@ -110,8 +110,11 @@
   };
 
   NS.storeInfo = function (id) {
+    var key = String(id || "").toLowerCase().trim();
     for (var i = 0; i < NS.STORES.length; i += 1) {
-      if (NS.STORES[i].id === id) { return NS.STORES[i]; }
+      if (NS.STORES[i].id === key || NS.STORES[i].label.toLowerCase() === key) {
+        return NS.STORES[i];
+      }
     }
     var label = String(id || "Unbekannt").replace(/[-_]+/g, " ");
     label = label.charAt(0).toUpperCase() + label.slice(1);

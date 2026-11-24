@@ -337,3 +337,11 @@ def test_app_shell_is_always_revalidated(client: TestClient) -> None:
     for path in ("/", "/login", "/js/api.js", "/css/styles.css", "/sw.js"):
         response = client.get(path, headers=basic("geheim123"))
         assert response.headers.get("cache-control") == "no-cache", path
+
+
+def test_service_worker_is_public_like_the_manifest(client: TestClient) -> None:
+    force_settings(site_password="geheim123")
+
+    response = client.get("/sw.js")
+
+    assert response.status_code == 200

@@ -1394,13 +1394,22 @@ def test_receipt_store_can_be_corrected(
     )
 
     response = client.patch(
-        f"{PREFIX}/receipts/{receipt_id}", json={"store": "media markt"}
+        f"{PREFIX}/receipts/{receipt_id}",
+        json={
+            "store": "media markt",
+            "receipt_date": "2026-11-24",
+            "total_cents": 599,
+        },
     )
 
     assert response.status_code == 200
-    assert response.json()["store"] == "media markt"
+    assert response.json() == {
+        "store": "media markt", "receipt_date": "2026-11-24", "total_cents": 599
+    }
     stored = repository.user_receipt(receipt_id=receipt_id, owner_token=OWNER)
     assert stored["store"] == "media markt"
+    assert stored["receipt_date"] == "2026-11-24"
+    assert stored["total_cents"] == 599
 
     foreign = client.patch(
         f"{PREFIX}/receipts/{receipt_id}",
@@ -1408,3 +1417,49 @@ def test_receipt_store_can_be_corrected(
         headers={"X-Owner-Token": "other-owner-token-1234"},
     )
     assert foreign.status_code == 404
+
+
+def test_text_ebon_upload_is_parsed_locally(client: TestClient) -> None:
+    text = (
+        b"REWE Markt\n"
+        b"65618 Selters\n"
+        b"24.11.2026\n"
+        b"Milch 1,19 A\n"
+        b"Butter 250g 2,49 B\n"
+        b"Summe 3,68\n"
+    )
+    response = client.post(
+        f"{PREFIX}/receipts/scan",
+        files={"file": ("bon.txt", text, "text/plain")},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["engine"] == "text"
+    assert body["store"] == "rewe"
+    assert len(body["items"]) >= 2
+    assert body["total_cents"] == 368
+
+
+def test_store_names_are_normalised_on_save(
+    client: TestClient, repository: Repository
+) -> None:
+    cases = (("REWE", "rewe"), ("PENNY", "penny"),
+             ("Media Markt", "mediamarkt"))
+    for raw, expected in cases:
+        response = client.post(
+            f"{PREFIX}/receipts",
+            data={
+                "store": raw,
+                "postal_code": "65618",
+                "currency": "EUR",
+                "receipt_date": "2026-11-22",
+                "total_cents": 199,
+                "items_json": json.dumps([]),
+            },
+        )
+        assert response.status_code == 200
+        receipt = repository.user_receipt(
+            receipt_id=response.json()["receipt_id"], owner_token=OWNER
+        )
+        assert receipt["store"] == expected, (raw, receipt["store"])

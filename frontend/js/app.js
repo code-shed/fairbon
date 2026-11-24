@@ -46,6 +46,26 @@
     });
   }
 
+  NS.toast = function (message, actionLabel, callback) {
+    var box = $("toast");
+    var msg = $("toast-message");
+    var action = $("toast-action");
+    if (!box || !msg || !action) { return; }
+    msg.textContent = message;
+    action.hidden = !actionLabel;
+    if (actionLabel) { action.textContent = actionLabel; }
+    box.hidden = false;
+    var timer = global.setTimeout(function () {
+      box.hidden = true;
+      if (callback) { callback(false); }
+    }, 5000);
+    action.onclick = function () {
+      global.clearTimeout(timer);
+      box.hidden = true;
+      if (callback) { callback(true); }
+    };
+  };
+
   function updateSharingUI() {
     var forced = NS.state.requireCommunitySharing === true && !NS.state.byok;
     var switchEl = $("settings-share");
@@ -452,6 +472,25 @@
     });
   }
 
+  function bindShortcuts() {
+    document.addEventListener("keydown", function (event) {
+      var tag = document.activeElement ? document.activeElement.tagName : "";
+      var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      if (event.key === "/" && !typing) {
+        var target = location.hash.indexOf("prices") >= 0
+          ? $("query")
+          : (location.hash.indexOf("list") >= 0
+            ? $("shopping-list") : $("receipts-search"));
+        if (target) { event.preventDefault(); target.focus(); }
+      }
+      if ((event.key === "n" || event.key === "N") && !typing &&
+          !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (document.querySelector(".modal:not([hidden])")) { return; }
+        NS.components.addSheet.open(false);
+      }
+    });
+  }
+
   function bindOverlayKeys() {
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") { return; }
@@ -502,6 +541,7 @@
     bindTabs();
     bindSettings();
     bindOverlayKeys();
+    bindShortcuts();
     bindShopping();
     global.addEventListener("hashchange", function () {
       switchTab(initialTab());
@@ -513,6 +553,14 @@
     NS.components.addSheet.init();
     applyTheme();
     updateSharingUI();
+    var offlineBadge = $("offline-badge");
+    function setOffline(offline) {
+      if (offlineBadge) { offlineBadge.hidden = !offline; }
+    }
+    global.addEventListener("online", function () { setOffline(false); });
+    global.addEventListener("offline", function () { setOffline(true); });
+    NS.on("api-offline", function () { setOffline(true); });
+    NS.on("api-online", function () { setOffline(false); });
     NS.api.get("/health").then(function (config) {
       NS.state.requireCommunitySharing = config.require_community_sharing === true;
       updateSharingUI();

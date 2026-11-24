@@ -8,6 +8,7 @@
   var receipts = [];
   var filter = "all";
   var search = "";
+  var activeCategory = "";
   var activeReceipt = null;
   var loaded = false;
   var loadError = "";
@@ -18,6 +19,8 @@
     els.list = $("receipt-list");
     els.empty = $("receipts-empty");
     els.search = $("receipts-search");
+    els.searchClear = $("receipts-search-clear");
+    els.categoryChip = $("category-filter");
     els.filters = $("receipt-filters");
     els.modal = $("receipt-modal");
     els.backdrop = $("receipt-backdrop");
@@ -59,6 +62,20 @@
 
     els.search.addEventListener("input", function () {
       search = (els.search.value || "").trim().toLowerCase();
+      els.searchClear.hidden = !els.search.value;
+      renderList();
+    });
+    els.searchClear.addEventListener("click", function () {
+      els.search.value = "";
+      search = "";
+      activeCategory = "";
+      els.categoryChip.hidden = true;
+      els.searchClear.hidden = true;
+      renderList();
+    });
+    els.categoryChip.addEventListener("click", function () {
+      activeCategory = "";
+      els.categoryChip.hidden = true;
       renderList();
     });
     Array.prototype.forEach.call(
@@ -84,8 +101,12 @@
     NS.on("receipts-changed", load);
     NS.on("open-receipts", function (payload) {
       if (payload && payload.category) {
-        search = payload.category.toLowerCase();
-        els.search.value = payload.category;
+        activeCategory = payload.category;
+        search = "";
+        els.search.value = "";
+        els.searchClear.hidden = true;
+        els.categoryChip.textContent = payload.category + " ×";
+        els.categoryChip.hidden = false;
         filter = "all";
         Array.prototype.forEach.call(
           els.filters.querySelectorAll(".chip"),
@@ -119,6 +140,12 @@
   }
 
   function matches(receipt) {
+    if (activeCategory) {
+      var inCategory = (receipt.items || []).some(function (item) {
+        return String(item.category || "") === activeCategory;
+      });
+      if (!inCategory) { return false; }
+    }
     if (filter === "shared" && !receipt.shared_to_community) { return false; }
     if (filter === "business") {
       var hasBusiness = (receipt.items || []).some(function (item) {
@@ -457,6 +484,26 @@
     fix.textContent = "Anpassen";
     fix.addEventListener("click", function () { toggleEdit(receipt); });
     els.items.appendChild(fix);
+
+    var allToList = document.createElement("button");
+    allToList.type = "button";
+    allToList.className = "secondary btn-link";
+    allToList.textContent = "Alle Artikel auf Liste";
+    allToList.addEventListener("click", function () {
+      (receipt.items || []).forEach(function (item) {
+        NS.addToBasket({
+          name: item.normalized_name || item.raw_text,
+          brand: item.brand,
+          store: receipt.store,
+          price: (item.price_cents || 0) / 100,
+          unit_price: item.unit_price_cents ? item.unit_price_cents / 100 : null,
+          quantity: item.quantity,
+          unit: item.unit
+        });
+      });
+      allToList.textContent = "✓ Auf der Liste";
+    });
+    els.items.appendChild(allToList);
   }
 
   var EDIT_CATEGORIES = [
@@ -484,6 +531,24 @@
     storeInput.setAttribute("list", "receipt-store-options");
     storeInput.setAttribute("aria-label", "Markt");
     storeLabel.appendChild(storeInput);
+    var dateLabel = document.createElement("label");
+    dateLabel.className = "field";
+    dateLabel.textContent = "Datum";
+    var dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.value = receipt.receipt_date || "";
+    dateInput.setAttribute("aria-label", "Belegdatum");
+    dateLabel.appendChild(dateInput);
+    var totalLabel = document.createElement("label");
+    totalLabel.className = "field";
+    totalLabel.textContent = "Gesamtbetrag (€)";
+    var totalInput = document.createElement("input");
+    totalInput.type = "number";
+    totalInput.min = "0";
+    totalInput.step = "0.01";
+    totalInput.value = ((receipt.total_cents || 0) / 100).toFixed(2);
+    totalInput.setAttribute("aria-label", "Gesamtbetrag in Euro");
+    totalLabel.appendChild(totalInput);
     var storeList = document.createElement("datalist");
     storeList.id = "receipt-store-options";
     NS.STORES.forEach(function (store) {
@@ -494,24 +559,36 @@
     var storeSave = document.createElement("button");
     storeSave.type = "button";
     storeSave.className = "mini-btn";
-    storeSave.textContent = "Markt speichern";
+    storeSave.textContent = "Bon-Daten speichern";
     storeSave.addEventListener("click", function () {
       storeSave.disabled = true;
       var value = storeInput.value.trim() || "Sonstiges";
-      NS.api.patchJson("/api/v1/receipts/" + receipt.id, { store: value })
-        .then(function () {
-          receipt.store = value;
-          $("receipt-title").textContent = NS.storeInfo(value).label;
-          load();
-          renderItems(receipt);
-          showReceiptFeedback("Markt gespeichert.");
-        }).catch(function (error) {
-          storeSave.disabled = false;
-          $("receipt-error").hidden = false;
-          $("receipt-error").textContent = error.message || "Markt nicht gespeichert.";
-        });
+      NS.api.patchJson("/api/v1/receipts/" + receipt.id, {
+        store: value,
+        receipt_date: dateInput.value,
+        total_cents: Math.round((Number(totalInput.value) || 0) * 100)
+      }).then(function () {
+        receipt.store = value;
+        receipt.receipt_date = dateInput.value;
+        receipt.total_cents = Math.round((Number(totalInput.value) || 0) * 100);
+        $("receipt-title").textContent = NS.storeInfo(value).label;
+        $("receipt-sub").textContent = [
+          NS.formatDate(receipt.receipt_date),
+          receipt.postal_code || "",
+          receipt.currency || "EUR"
+        ].filter(Boolean).join(" · ");
+        load();
+        renderItems(receipt);
+        showReceiptFeedback("Bon-Daten gespeichert.");
+      }).catch(function (error) {
+        storeSave.disabled = false;
+        $("receipt-error").hidden = false;
+        $("receipt-error").textContent = error.message || "Bon nicht gespeichert.";
+      });
     });
     storeBox.appendChild(storeLabel);
+    storeBox.appendChild(dateLabel);
+    storeBox.appendChild(totalLabel);
     storeBox.appendChild(storeList);
     storeBox.appendChild(storeSave);
     els.items.appendChild(storeBox);
@@ -607,20 +684,26 @@
 
   function deleteActive() {
     if (!activeReceipt) { return; }
-    if (!global.confirm("Diesen Bon wirklich löschen?")) { return; }
     var receiptId = activeReceipt.id;
     var button = $("receipt-delete");
     button.disabled = true;
-    NS.api.del("/api/v1/receipts/" + receiptId).then(function () {
-      NS.demo.unmarkSaved(receiptId);
-      button.disabled = false;
-      closeDetail();
-      load();
-      NS.emit("receipts-changed");
-    }).catch(function (error) {
-      button.disabled = false;
-      $("receipt-error").hidden = false;
-      $("receipt-error").textContent = error.message;
+    NS.toast("Bon gelöscht – rückgängig", "Rückgängig", function (undo) {
+      if (undo) {
+        button.disabled = false;
+        showReceiptFeedback("Löschen abgebrochen.");
+        return;
+      }
+      NS.api.del("/api/v1/receipts/" + receiptId).then(function () {
+        NS.demo.unmarkSaved(receiptId);
+        button.disabled = false;
+        closeDetail();
+        load();
+        NS.emit("receipts-changed");
+      }).catch(function (error) {
+        button.disabled = false;
+        $("receipt-error").hidden = false;
+        $("receipt-error").textContent = error.message;
+      });
     });
   }
 

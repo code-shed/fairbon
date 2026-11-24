@@ -112,6 +112,7 @@
       <p class="sub">Kassenbons, Ausgaben &amp; Preise</p>
     </div>
     <div class="header-actions">
+      <span class="offline-badge" id="offline-badge" role="status" hidden>Offline</span>
       <button type="button" class="icon-btn" id="settings-open" aria-label="Einstellungen">⚙</button>
     </div>
   </div>
@@ -183,13 +184,17 @@
   <!-- Tab 2: Bons -->
   <section class="tab-panel" id="tab-receipts" data-tab="receipts" hidden>
     <div class="receipts-toolbar">
-      <input type="search" id="receipts-search" placeholder="Händler oder Artikel suchen" autocomplete="off">
+      <div class="receipts-search-wrap">
+        <input type="search" id="receipts-search" placeholder="Händler, Artikel, Menge oder Preis" autocomplete="off">
+        <button type="button" id="receipts-search-clear" aria-label="Suche löschen" hidden>×</button>
+      </div>
       <button type="button" class="secondary btn-link" id="export-xlsx">Export .xlsx</button>
       <button type="button" class="secondary btn-link" id="export-csv">CSV</button>
     </div>
     <p class="form-error" id="export-error" role="alert" hidden></p>
     <p class="barcode-banner" id="barcode-banner" role="status" hidden></p>
     <div class="chips" id="receipt-filters" aria-live="polite">
+      <button type="button" class="chip" id="category-filter" hidden></button>
       <button type="button" class="chip" data-filter="all" aria-pressed="true">Alle</button>
       <button type="button" class="chip" data-filter="business" aria-pressed="false">Nur Geschäftlich</button>
       <button type="button" class="chip" data-filter="shared" aria-pressed="false">Geteilt</button>
@@ -404,6 +409,15 @@
       </div>
       <p class="detail-note" id="add-queue-info" hidden></p>
       <p class="detail-note add-warnings" id="add-warnings" hidden></p>
+      <details class="share-details" id="share-details" hidden>
+        <summary>Anzeigen, was anonym geteilt wird</summary>
+        <ul id="share-preview-list"></ul>
+      </details>
+      <div class="duplicate-warning" id="add-duplicate" hidden>
+        <span>Ein ähnlicher Bon existiert bereits.</span>
+        <button type="button" class="secondary" id="duplicate-cancel">Abbrechen</button>
+        <button type="button" class="primary" id="duplicate-continue">Trotzdem speichern</button>
+      </div>
       <p class="detail-note community-hint" id="community-auto-hint" hidden>FairBon ist kostenlos &amp; werbefrei. Im Gegenzug fließen anonymisierte Supermarkt- und Drogeriepreise (ohne Konto- oder Nutzerbezug) automatisch in den offenen Preisvergleich. Lieber komplett lokal? Nutze einen eigenen API-Key oder hoste FairBon selbst.</p>
       <label class="field">Markt
         <input type="text" id="add-store" list="store-options" autocomplete="off" placeholder="z. B. Penny oder ein lokaler Markt">
@@ -538,7 +552,7 @@
         <button type="button" class="secondary" id="settings-changelog">Versionshinweise (Changelog)</button>
         <button type="button" class="secondary" id="settings-onboarding">Erste Schritte</button>
       </div>
-      <p class="detail-note">100 % Open Source · Community-Kassenbons (anonymisiert) · Alle Angaben ohne Gewähr · Kein Datenverkauf</p>
+      <p class="detail-note">100 % Open Source · Alle Angaben ohne Gewähr</p>
       </div>
     </section>
 
@@ -573,6 +587,11 @@
       <li><strong>Einstellungen</strong> – Zugangs-Card (Token = Zugriff, Export = Daten), Theme-Schalter, Haptik und SpeicherInfos.</li>
     </ul>
   </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden>
+  <span id="toast-message"></span>
+  <button type="button" id="toast-action" hidden></button>
 </div>
 
 <script src="./js/state.js"></script>

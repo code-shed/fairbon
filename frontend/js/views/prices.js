@@ -49,9 +49,20 @@
   function renderStores() {
     els.storeGrid.textContent = "";
     var stores = NS.STORES.slice();
+    var seen = {};
+    stores.forEach(function (store) {
+      seen[store.id.toLowerCase()] = true;
+      seen[store.label.toLowerCase()] = true;
+    });
     ownStoreIds.forEach(function (id) {
-      var known = stores.some(function (store) { return store.id === id; });
-      if (!known) { stores.push(NS.storeInfo(id)); }
+      var key = String(id || "").toLowerCase().trim();
+      var info = NS.storeInfo(id);
+      var known = seen[key] || seen[info.label.toLowerCase()];
+      if (!known) {
+        stores.push(info);
+        seen[key] = true;
+        seen[info.label.toLowerCase()] = true;
+      }
     });
     stores.forEach(function (store) {
       var label = document.createElement("label");
@@ -519,6 +530,11 @@
 
   // --- speech -----------------------------------------------------------
   function startSpeech() {
+    if (!global.SpeechRecognition && !global.webkitSpeechRecognition) {
+      NS.toast("Spracheingabe in diesem Browser nicht verfügbar");
+      return;
+    }
+
     var Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
     if (!Recognition) { return; }
     var recognition = new Recognition();

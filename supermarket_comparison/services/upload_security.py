@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 from dataclasses import dataclass
+from typing import Final
 
 from ..config import get_settings
 from .receipt_import import MAX_UPLOAD_BYTES, UnsupportedReceipt
@@ -44,6 +45,28 @@ class SanitizedUpload:
     data: bytes
     #: Human-readable label for error messages.
     kind: str  # image or pdf
+
+
+#: Local eBon/Text uploads are tiny; never send them through the vision stack.
+PLAIN_TEXT_MAX_BYTES: Final = 512 * 1024
+
+
+def is_plain_text(data: bytes, content_type: str | None, filename: str | None) -> bool:
+    """Whether an upload is a small, decodable plain-text receipt."""
+
+    declared = (content_type or "").split(";", 1)[0].strip().lower()
+    suffix = (filename or "").lower().rsplit(".", 1)[-1]
+    if declared != "text/plain" or suffix != "txt":
+        return False
+    if not data or len(data) > PLAIN_TEXT_MAX_BYTES or b"\x00" in data:
+        return False
+    for encoding in ("utf-8", "latin-1"):
+        try:
+            data.decode(encoding)
+            return True
+        except UnicodeDecodeError:
+            continue
+    return False
 
 
 def validate_size(data: bytes) -> None:
@@ -131,10 +154,12 @@ def sanitize(upload: bytes) -> SanitizedUpload:
 
 
 __all__ = [
+    "PLAIN_TEXT_MAX_BYTES",
     "ImageSanitizeError",
     "SanitizedUpload",
     "UploadTooLarge",
     "detect_media_type",
+    "is_plain_text",
     "sanitize",
     "validate_size",
 ]
