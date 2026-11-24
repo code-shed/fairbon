@@ -25,6 +25,7 @@ _ENV_ALIASES: Final[dict[str, str]] = {
     "session_secret": "SESSION_SECRET",
     "admin_password": "ADMIN_PASSWORD",
     "trust_proxy": "TRUST_PROXY",
+    "require_community_sharing": "REQUIRE_COMMUNITY_SHARING",
     "max_upload_bytes": "MAX_UPLOAD_BYTES",
     "vision_primary_provider": "VISION_PRIMARY_PROVIDER",
     "vision_primary_api_key": "VISION_PRIMARY_API_KEY",
@@ -100,6 +101,10 @@ class Settings(BaseModel):
     #: Comma-separated list of trusted proxy headers for rate limiting
     #: (only honoured when `trust_proxy` is true).
     trust_proxy: bool = False
+    #: Hosted give-and-take mode: anonymous prices are shared by default,
+    #: unless the user brings their own vision key (BYOK). Self-hosters keep
+    #: the opt-in. Public flag exposed via /health for the frontend.
+    require_community_sharing: bool = False
 
     standard_price_limit: int = 12
 

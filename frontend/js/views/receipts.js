@@ -410,7 +410,12 @@
       var toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "mini-btn";
-      toggle.textContent = item.is_private ? "Öffentlich" : "Privat";
+      toggle.textContent = item.is_private
+        ? "Privat (Steuer)"
+        : "Im Steuer-Export";
+      toggle.setAttribute("title",
+        "Steuer-Export: private Positionen bleiben im Bon, werden aber " +
+        "nicht in die Steuer-Zusammenfassung aufgenommen.");
       toggle.addEventListener("click", function () {
         setPrivate(item, !item.is_private);
       });

@@ -46,6 +46,16 @@
     });
   }
 
+  function updateSharingUI() {
+    var forced = NS.state.requireCommunitySharing === true && !NS.state.byok;
+    var switchEl = $("settings-share");
+    if (switchEl) {
+      var row = switchEl.closest("label");
+      if (row) { row.hidden = forced; }
+    }
+    NS.emit("sharing-mode-changed", { forced: forced });
+  }
+
   // --- appearance -------------------------------------------------------
   function applyTheme() {
     var mode = NS.state.themeMode || "system";
@@ -344,6 +354,7 @@
     byok.addEventListener("change", function () {
       NS.state.byok = byok.value.trim();
       NS.storage.set("fairbon.byok", NS.state.byok);
+      updateSharingUI();
     });
     byokProvider.addEventListener("change", function () {
       NS.state.byokProvider = byokProvider.value;
@@ -440,6 +451,11 @@
     NS.views.receipts.init();
     NS.components.addSheet.init();
     applyTheme();
+    updateSharingUI();
+    NS.api.get("/health").then(function (config) {
+      NS.state.requireCommunitySharing = config.require_community_sharing === true;
+      updateSharingUI();
+    }).catch(function () { /* offline: keep the self-hosted default */ });
     if (global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").addEventListener) {
       global.matchMedia("(prefers-color-scheme: dark)").addEventListener(
         "change", function () {

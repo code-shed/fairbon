@@ -441,8 +441,14 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
         return response
 
     @app.get("/health", tags=["system"], summary="Health check")
-    async def health() -> dict[str, str]:
-        return {"status": "ok", "version": settings.app_version}
+    async def health() -> dict[str, object]:
+        return {
+            "status": "ok",
+            "version": settings.app_version,
+            "require_community_sharing": bool(
+                get_settings().require_community_sharing
+            ),
+        }
 
     @app.get("/robots.txt", include_in_schema=False)
     async def robots() -> PlainTextResponse:

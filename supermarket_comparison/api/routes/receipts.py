@@ -753,7 +753,15 @@ async def save_receipt(
     plz = _normalize_plz(postal_code)
 
     # A demo receipt is never shared, even if a client sends share=true.
-    effective_share = bool(share_anonymized) and not is_demo
+    # On the hosted instance (REQUIRE_COMMUNITY_SHARING) anonymous prices are
+    # shared by default — unless the user brings their own API key.
+    user_key = (request.headers.get(BYOK_HEADER) or "").strip()
+    hosted_auto_share = (
+        bool(get_settings().require_community_sharing) and not user_key
+    )
+    effective_share = (
+        (bool(share_anonymized) or hosted_auto_share) and not is_demo
+    )
 
     receipt_id = repository.insert_user_receipt(
         owner_token=owner_token,
@@ -795,7 +803,9 @@ async def save_receipt(
             category = str(item.get("category") or "Sonstiges")
             if category not in _COMMUNITY_CATEGORIES:
                 continue
-            if item.get("is_private"):
+            # In hosted mode is_private only controls the tax export;
+            # anonymous sharing must not depend on it.
+            if item.get("is_private") and not hosted_auto_share:
                 continue
             if item.get("deposit_cents"):  # Pfand is never shared
                 continue

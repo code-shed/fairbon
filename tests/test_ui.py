@@ -332,6 +332,26 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_require_community_sharing_mode_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    state = (FRONTEND / "js" / "state.js").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    receipts = (FRONTEND / "js" / "views" / "receipts.js").read_text()
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text()
+
+    assert "REQUIRE_COMMUNITY_SHARING=false" in example
+    assert "requireCommunitySharing" in state
+    assert 'NS.api.get("/health")' in app
+    assert "updateSharingUI" in app
+    assert 'id="community-auto-hint"' in html
+    assert "communityHint" in sheet
+    assert "requireCommunitySharing === true && !NS.state.byok" in sheet
+    # The remaining private toggle is about the tax export only.
+    assert "Im Steuer-Export" in receipts
+    assert "nicht im Steuer-Export" in sheet
+
+
 def test_phase_c_onboarding_theme_and_haptics_are_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     css = (FRONTEND / "css" / "styles.css").read_text()
@@ -458,7 +478,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v19" in sw
+    assert "fairbon-v20" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -567,7 +587,7 @@ def test_demo_receipt_contains_expected_sample_data() -> None:
 def test_demo_mode_never_shares_to_community() -> None:
     js = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
 
-    assert "!isDemo && NS.state.shareOptin === true" in js
+    assert "!isDemo && (" in js  # demo receipts are never shared
     assert "Example" not in js
 
 

@@ -1444,3 +1444,10 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
   min-width: 28px; height: 28px; border-radius: 8px;
   color: #fff; font-size: .74rem; font-weight: 700;
 }
+
+/* --- hosted give-and-take hint (REQUIRE_COMMUNITY_SHARING) ------------- */
+.community-hint {
+  padding: 10px 12px; border-left: 3px solid var(--accent);
+  background: var(--accent-soft); color: var(--text);
+  border-radius: var(--radius-sm); font-size: .84rem;
+}

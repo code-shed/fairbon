@@ -40,6 +40,7 @@
     els.businessWrap = $("add-business-wrap");
     els.business = $("add-business");
     els.warnings = $("add-warnings");
+    els.communityHint = $("community-auto-hint");
     els.skip = $("add-skip");
     if (!els.modal) { return; }
 
@@ -77,6 +78,11 @@
         storeOptions.appendChild(option);
       });
     }
+    NS.on("sharing-mode-changed", function (payload) {
+      if (els.communityHint) {
+        els.communityHint.hidden = !(payload && payload.forced);
+      }
+    });
     var closeBanner = $("demo-banner-close");
     if (closeBanner) {
       closeBanner.addEventListener("click", function () {
@@ -108,6 +114,11 @@
     els.summary.textContent = "";
     els.save.textContent = isDemo ? "Als Demo speichern" : "Bon speichern";
     els.businessWrap.hidden = NS.state.businessExpenses !== true;
+    if (els.communityHint) {
+      els.communityHint.hidden = !(
+        NS.state.requireCommunitySharing === true && !NS.state.byok
+      );
+    }
     els.business.checked = false;
     els.modal.hidden = false;
     els.backdrop.hidden = false;
@@ -475,7 +486,7 @@
       renderPreview(isDemo);
     });
     var privateText = document.createElement("span");
-    privateText.textContent = "Privat (nicht exportieren)";
+    privateText.textContent = "Privat (nicht im Steuer-Export)";
     privateLabel.appendChild(privateInput);
     privateLabel.appendChild(privateText);
 
@@ -570,7 +581,10 @@
     // A demo receipt must never reach the community pool.
     data.append(
       "share_anonymized",
-      !isDemo && NS.state.shareOptin === true ? "true" : "false"
+      !isDemo && (
+        NS.state.shareOptin === true ||
+        (NS.state.requireCommunitySharing === true && !NS.state.byok)
+      ) ? "true" : "false"
     );
     data.append("is_demo", isDemo ? "true" : "false");
     data.append(
