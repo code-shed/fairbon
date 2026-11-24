@@ -511,7 +511,7 @@ def test_flagged_receipt_price_stays_in_review(
                     {
                         "raw_text": "Gold 5000,00",
                         "normalized_name": "Gold",
-                        "category": "Sonstiges",
+                        "category": "Lebensmittel",
                         "quantity": 1.0,
                         "unit": "stueck",
                         "price_cents": 500000,
@@ -1329,3 +1329,50 @@ def test_export_marks_business_by_receipt_not_item_flag(
     ]
     assert "Geschäftliche Ausgaben" in values2
     assert "GESAMT GESCHÄFTLICH" in values2
+
+
+
+def test_community_optin_only_shares_price_relevant_categories(
+    client: TestClient, repository: Repository
+) -> None:
+    items = [
+        {
+            "raw_text": name,
+            "normalized_name": name,
+            "category": category,
+            "quantity": 1.0,
+            "unit": "stueck",
+            "price_cents": 199,
+        }
+        for name, category in (
+            ("Brot", "Lebensmittel"),
+            ("Wasser", "Getränke"),
+            ("Shampoo", "Drogerie"),
+            ("Spüli", "Haushalt"),
+            ("Brötchen", "Bäcker/Gastronomie"),
+            ("Kabel", "Technik/Non-Food"),
+            ("Flasche", "Pfand"),
+            ("Mystery", "Sonstiges"),
+        )
+    ]
+    response = client.post(
+        f"{PREFIX}/receipts",
+        data={
+            "store": "REWE",
+            "postal_code": "65618",
+            "currency": "EUR",
+            "receipt_date": "2026-11-22",
+            "total_cents": 8 * 199,
+            "share_anonymized": "true",
+            "items_json": json.dumps(items),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["shared_count"] == 4
+    rows = repository.db.query("SELECT name FROM community_prices")
+    shared = {row["name"] for row in rows}
+    assert shared == {"Brot", "Wasser", "Shampoo", "Spüli"}
+    # All eight lines remain in the private household book.
+    receipt_id = response.json()["receipt_id"]
+    assert len(repository.user_receipt_items_for(receipt_id)) == 8

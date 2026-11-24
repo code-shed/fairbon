@@ -20,10 +20,21 @@ import contextlib
 import re
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 
 from ...config import get_settings
 from ...normalization.categories import RECEIPT_CATEGORIES, normalize_category
+from ...normalization.matcher import normalize_title
+from ...services.barcode import is_ambiguous_term, lookup_barcode
 from ...services.pdf_pages import MAX_PDF_PAGES, PdfUnreadable, pdf_page_images
 from ...services.rate_limit import allow_scan, client_ip, scan_daily_global
 from ...services.receipt_import import OcrUnavailable, extract_text, try_ocr_page
@@ -51,12 +62,11 @@ _PLZ_RE = re.compile(r"^[0-9]{4,5}$")
 #: Categories allowed for receipt items (spec §3).
 CATEGORIES: frozenset[str] = frozenset(RECEIPT_CATEGORIES)
 
-#: Categories that must never be shared with the community.
-_PRIVATE_ONLY_CATEGORIES: frozenset[str] = frozenset(
-    {
-        "Pfand",
-        "Technik/Non-Food",
-    }
+#: Only these categories are relevant for the price comparison. Other
+#: lines stay in the private household book and export (bakery, tech,
+#: deposits, unknown items).
+_COMMUNITY_CATEGORIES: frozenset[str] = frozenset(
+    {"Lebensmittel", "Getränke", "Drogerie", "Haushalt"}
 )
 
 
@@ -527,6 +537,136 @@ async def set_item_private(
     return {"is_private": is_private}
 
 
+@router.post(
+    "/items/{item_id}/link-barcode",
+    summary="Barcode mit einer Bon-Zeile verknüpfen (Open Food Facts)",
+)
+async def link_item_barcode(
+    item_id: int,
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+    payload: Annotated[dict[str, Any], Body()],
+    preview: Annotated[bool, Query()] = False,
+) -> dict[str, Any]:
+    """Link an EAN to one item; a failed upstream lookup never blocks it."""
+
+    owner_token = _owner_token(request)
+    ean = str(payload.get("ean") or "").strip()
+    if not re.fullmatch(r"\d{8,14}", ean):
+        raise HTTPException(status_code=422, detail="Ungültige EAN/GTIN.")
+
+    item = repository.item_for_owner(item_id=item_id, owner_token=owner_token)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Position nicht gefunden.")
+
+    product = await lookup_barcode(ean)
+    raw_text = str(item.get("raw_text") or "")
+    name = str((product or {}).get("name") or payload.get("name")
+               or item.get("normalized_name") or raw_text).strip()
+    brand = str((product or {}).get("brand") or payload.get("brand")
+                or item.get("brand") or "").strip() or None
+    quantity = (
+        (product or {}).get("quantity")
+        or payload.get("quantity")
+        or item.get("quantity")
+    )
+    unit = str((product or {}).get("unit") or payload.get("unit")
+               or item.get("unit") or "stueck").strip().lower()
+
+    if preview:
+        return {
+            "ean": ean,
+            "name": name,
+            "brand": brand,
+            "quantity": quantity,
+            "unit": unit,
+            "found_upstream": product is not None,
+        }
+
+    updated = repository.update_receipt_item(
+        item_id=item_id,
+        owner_token=owner_token,
+        fields={
+            "ean": ean,
+            "normalized_name": name,
+            "brand": brand,
+            "quantity": quantity,
+            "unit": unit,
+            "is_ambiguous": is_ambiguous_term(raw_text),
+        },
+    ) or {}
+    repository.upsert_alias(
+        store=str(item.get("store") or "unbekannt"),
+        raw_text_norm=normalize_title(raw_text),
+        normalized_name=name,
+        brand=brand,
+        category=item.get("category"),
+        quantity=quantity,
+        unit=unit,
+        ean=ean,
+        is_ambiguous=is_ambiguous_term(raw_text),
+        verified_count=1,
+    )
+
+    # Improve the community price as well — still without owner linkage.
+    if (
+        item.get("shared_to_community")
+        and item.get("category") in _COMMUNITY_CATEGORIES
+    ):
+        with contextlib.suppress(Exception):  # sharing must not fail the link
+            await _share_to_community(
+                repository,
+                str(item.get("store") or "unbekannt"),
+                item.get("postal_code"),
+                updated,
+            )
+
+    return {
+        "id": item_id,
+        "ean": ean,
+        "name": name,
+        "brand": brand,
+        "quantity": quantity,
+        "unit": unit,
+        "found_upstream": product is not None,
+    }
+
+
+@router.patch(
+    "/items/{item_id}",
+    summary="Bon-Zeile nachbearbeiten",
+)
+async def edit_item(
+    item_id: int,
+    request: Request,
+    repository: Annotated[Repository, Depends(get_repository)],
+    payload: Annotated[dict[str, Any], Body()],
+) -> dict[str, Any]:
+    owner_token = _owner_token(request)
+    fields: dict[str, Any] = {}
+    if "name" in payload:
+        fields["normalized_name"] = str(payload["name"] or "").strip()[:200]
+    if "brand" in payload:
+        fields["brand"] = str(payload["brand"] or "").strip()[:200] or None
+    if "quantity" in payload:
+        fields["quantity"] = max(0.01, float(payload["quantity"] or 1.0))
+    if "unit" in payload:
+        fields["unit"] = str(payload["unit"] or "stueck").strip()[:20]
+    if "price_cents" in payload:
+        cents = int(payload["price_cents"] or 0)
+        if not 0 <= cents <= 500_000:
+            raise HTTPException(status_code=422, detail="Preis außerhalb der Grenzen.")
+        fields["price_cents"] = cents
+    if "category" in payload:
+        fields["category"] = normalize_category(payload["category"])
+    updated = repository.update_receipt_item(
+        item_id=item_id, owner_token=owner_token, fields=fields
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Position nicht gefunden.")
+    return {key: updated.get(key) for key in fields}
+
+
 @router.post("", summary="Kassenbon speichern (privat + optional Community)")
 async def save_receipt(
     request: Request,
@@ -636,7 +776,7 @@ async def save_receipt(
     if effective_share:
         for item in items:
             category = str(item.get("category") or "Sonstiges")
-            if category in _PRIVATE_ONLY_CATEGORIES:
+            if category not in _COMMUNITY_CATEGORIES:
                 continue
             if item.get("is_private"):
                 continue
@@ -681,7 +821,7 @@ async def _share_to_community(
         store=store,
         price=round(price_cents / 100.0, 2),
         postal_code=postal_code or "00000",
-        ean=None,
+        ean=(item.get("ean") or "").strip() or None,
         unit=unit,
         quantity=quantity,
         scout_id=None,  # deliberately anonymous — no owner linkage

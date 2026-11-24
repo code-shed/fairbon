@@ -204,7 +204,9 @@ CREATE TABLE IF NOT EXISTS user_receipt_items (
     discount_cents   INTEGER NOT NULL DEFAULT 0,
     deposit_cents    INTEGER NOT NULL DEFAULT 0,
     vat_rate         REAL,
-    is_private       INTEGER NOT NULL DEFAULT 0
+    is_private       INTEGER NOT NULL DEFAULT 0,
+    ean              TEXT,
+    is_ambiguous     INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_user_receipt_items_receipt ON user_receipt_items(receipt_id);
 
@@ -221,9 +223,21 @@ CREATE TABLE IF NOT EXISTS receipt_aliases (
     category         TEXT,
     quantity         REAL,
     unit             TEXT,
+    ean              TEXT,
+    variant_group    TEXT,
+    is_ambiguous     INTEGER NOT NULL DEFAULT 0,
+    verified_count   INTEGER NOT NULL DEFAULT 0,
     hit_count        INTEGER NOT NULL DEFAULT 1,
     created_at       TEXT NOT NULL,
     updated_at       TEXT NOT NULL,
     UNIQUE (store, raw_text_norm)
 );
 CREATE INDEX IF NOT EXISTS idx_receipt_aliases_lookup ON receipt_aliases(store, raw_text_norm);
+
+CREATE TABLE IF NOT EXISTS alias_barcodes (
+    alias_id   INTEGER NOT NULL REFERENCES receipt_aliases(id) ON DELETE CASCADE,
+    ean        TEXT NOT NULL,
+    quantity   REAL,
+    unit       TEXT,
+    PRIMARY KEY (alias_id, ean)
+);

@@ -172,6 +172,7 @@
       <button type="button" class="secondary btn-link" id="export-csv">CSV</button>
     </div>
     <p class="form-error" id="export-error" role="alert" hidden></p>
+    <p class="barcode-banner" id="barcode-banner" role="status" hidden></p>
     <div class="chips" id="receipt-filters" aria-live="polite">
       <button type="button" class="chip" data-filter="all" aria-pressed="true">Alle</button>
       <button type="button" class="chip" data-filter="business" aria-pressed="false">Nur Geschäftlich</button>
@@ -421,6 +422,10 @@
     <label class="switch" for="settings-share">
       <input type="checkbox" id="settings-share" checked>
       <span>Produktpreise anonymisiert für den Community-Preisvergleich teilen (ohne persönliche Daten)</span>
+    </label>
+    <label class="switch" for="settings-doc-enhance">
+      <input type="checkbox" id="settings-doc-enhance" checked>
+      <span>Verbesserter Dokumentenscanner (Kontrast &amp; Schärfe für Thermopapier)</span>
     </label>
     <label class="switch" for="settings-business">
       <input type="checkbox" id="settings-business">

@@ -1324,3 +1324,29 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 }
 .option-head strong { font-size: 1rem; }
 .receipt-row { cursor: pointer; }
+
+/* --- Barcode quick scan & item polish (Phase A) ------------------------ */
+.barcode-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 12px; margin: 0 0 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--accent-soft); color: var(--text);
+  font-size: .86rem;
+}
+.barcode-banner > span { flex: 1 1 240px; }
+.barcode-banner .mini-btn { min-height: 44px; }
+.item-editor {
+  display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px;
+  padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.item-editor input, .item-editor select {
+  min-height: 44px; width: 100%; font: inherit;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); padding: 8px;
+}
+.item-editor .mini-btn { grid-column: 1 / -1; min-height: 44px; }
+.fix-link { display: block; margin: 10px auto 0; min-height: 44px; line-height: 44px; }
+.ean-modal .field input { min-height: 44px; font-size: 1.05rem; letter-spacing: .04em; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.modal-actions button { min-height: 44px; }

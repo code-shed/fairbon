@@ -43,7 +43,7 @@
     },
 
     /** Downscale + grayscale + JPEG-compress an image File in the browser. */
-    compressImage: function (file, maxWidth, quality) {
+    compressImage: function (file, maxWidth, quality, enhance) {
       maxWidth = maxWidth || MAX_WIDTH;
       quality = quality || QUALITY;
       return new Promise(function (resolve, reject) {
@@ -62,9 +62,18 @@
             // Grayscale + slight contrast for OCR/vision robustness.
             var pixels = ctx.getImageData(0, 0, width, height);
             var data = pixels.data;
+            var factor = enhance === true ? 1.5 : 1.15;
+            var source = enhance === true ? data.slice() : null;
             for (var i = 0; i < data.length; i += 4) {
               var gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-              gray = Math.max(0, Math.min(255, (gray - 128) * 1.15 + 128));
+              gray = Math.max(0, Math.min(255, (gray - 128) * factor + 128));
+              if (source) {
+                // Light unsharp mask for faded thermal-paper prints.
+                var sharp = gray * 1.18 -
+                  0.09 * (source[i - 4] || source[i]) -
+                  0.09 * (source[i + 4] || source[i]);
+                gray = Math.max(0, Math.min(255, sharp));
+              }
               data[i] = data[i + 1] = data[i + 2] = gray;
             }
             ctx.putImageData(pixels, 0, 0);
@@ -84,6 +93,106 @@
         };
         image.src = objectUrl;
       });
+    },
+
+    /** Ask for an EAN when no BarcodeDetector is available (or detection fails). */
+    askEan: function () {
+      return new Promise(function (resolve) {
+        var backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop";
+        var box = document.createElement("div");
+        box.className = "modal modal--sheet ean-modal";
+        box.setAttribute("role", "dialog");
+        box.setAttribute("aria-label", "Barcode eingeben");
+
+        var title = document.createElement("h2");
+        title.textContent = "Barcode scannen";
+        var hint = document.createElement("p");
+        hint.className = "detail-note";
+        hint.textContent = "Kamera nicht verfügbar? Gib die EAN unter der Verpackung ein.";
+        var field = document.createElement("label");
+        field.className = "field";
+        field.textContent = "EAN / GTIN";
+        var input = document.createElement("input");
+        input.type = "text";
+        input.inputMode = "numeric";
+        input.maxLength = 14;
+        input.autocomplete = "off";
+        input.placeholder = "z. B. 4000400011111";
+        field.appendChild(input);
+        var actions = document.createElement("div");
+        actions.className = "modal-actions";
+        var cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "secondary";
+        cancel.textContent = "Fertig";
+        var ok = document.createElement("button");
+        ok.type = "button";
+        ok.className = "primary";
+        ok.textContent = "Übernehmen";
+        var error = document.createElement("p");
+        error.className = "form-error";
+        error.hidden = true;
+
+        function close(value) {
+          if (backdrop.parentNode) { document.body.removeChild(backdrop); }
+          if (box.parentNode) { document.body.removeChild(box); }
+          resolve(value);
+        }
+        cancel.addEventListener("click", function () { close(null); });
+        backdrop.addEventListener("click", function () { close(null); });
+        ok.addEventListener("click", function () {
+          var ean = input.value.replace(/\D/g, "");
+          if (ean.length < 8 || ean.length > 14) {
+            error.textContent = "Bitte 8 bis 14 Ziffern eingeben.";
+            error.hidden = false;
+            return;
+          }
+          close(ean);
+        });
+        input.addEventListener("keydown", function (event) {
+          if (event.key === "Enter") { ok.click(); }
+        });
+
+        actions.appendChild(cancel);
+        actions.appendChild(ok);
+        box.appendChild(title);
+        box.appendChild(hint);
+        box.appendChild(field);
+        box.appendChild(error);
+        box.appendChild(actions);
+        document.body.appendChild(backdrop);
+        document.body.appendChild(box);
+        input.focus();
+      });
+    },
+
+    /** Scan one barcode; falls back to manual entry without ever rejecting. */
+    scanBarcode: function () {
+      var Detector = global.BarcodeDetector;
+      if (!Detector) { return NS.platform.askEan(); }
+      return NS.platform.pickImage().then(function (file) {
+        if (!file) { return NS.platform.askEan(); }
+        return NS.platform.readAsDataURL(file).then(function (src) {
+          return new Promise(function (resolve) {
+            var image = new Image();
+            image.onload = function () {
+              try {
+                var detector = new Detector({
+                  formats: ["ean_13", "ean_8", "upc_a", "code_128"]
+                });
+                detector.detect(image).then(function (codes) {
+                  resolve(codes && codes.length
+                    ? String(codes[0].rawValue)
+                    : NS.platform.askEan());
+                }).catch(function () { resolve(NS.platform.askEan()); });
+              } catch (e) { resolve(NS.platform.askEan()); }
+            };
+            image.onerror = function () { resolve(NS.platform.askEan()); };
+            image.src = src;
+          });
+        });
+      }).catch(function () { return NS.platform.askEan(); });
     }
   };
 })(window);

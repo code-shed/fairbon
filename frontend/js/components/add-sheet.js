@@ -205,7 +205,9 @@
     resetError();
     setTilesDisabled(true);
     var prepare = isImage
-      ? NS.platform.compressImage(file).catch(function () { return file; })
+      ? NS.platform.compressImage(
+          file, undefined, undefined, NS.state.docEnhance !== false
+        ).catch(function () { return file; })
       : Promise.resolve(file);
 
     prepare.then(function (payload) {
@@ -619,6 +621,21 @@
       ) {
         NS.setPostalCode(receiptPlz);
         NS.emit("plz-changed", receiptPlz);
+      }
+      if (!isDemo) {
+        var relevant = items.filter(function (entry) {
+          return [
+            "Lebensmittel", "Getränke", "Drogerie", "Haushalt"
+          ].indexOf(entry.category || "Sonstiges") >= 0;
+        });
+        var open = relevant.filter(function (entry) { return !entry.ean; });
+        if (open.length) {
+          NS.emit("quick-scan-banner", {
+            open: open.length,
+            total: items.length,
+            items: open
+          });
+        }
       }
       if (queueIndex + 1 < queue.length) {
         queueSaved += 1;

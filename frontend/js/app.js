@@ -55,6 +55,7 @@
     var byokProvider = $("settings-byok-provider");
     var share = $("settings-share");
     var business = $("settings-business");
+    var docEnhance = $("settings-doc-enhance");
     var tokenCopy = $("settings-token-copy");
     var tokenRestore = $("settings-token-restore");
     var tokenRestoreBtn = $("settings-token-restore-btn");
@@ -93,6 +94,7 @@
       byokProvider.value = NS.state.byokProvider || "openai_compatible";
       share.checked = NS.state.shareOptin === true;
       business.checked = NS.state.businessExpenses === true;
+      docEnhance.checked = NS.state.docEnhance !== false;
     }
 
     function open() {
@@ -132,6 +134,10 @@
     share.addEventListener("change", function () {
       NS.state.shareOptin = share.checked === true;
       NS.storage.set("fairbon.share_optin.v1", NS.state.shareOptin);
+    });
+    docEnhance.addEventListener("change", function () {
+      NS.state.docEnhance = docEnhance.checked === true;
+      NS.storage.set("fairbon.doc_enhance", NS.state.docEnhance);
     });
     business.addEventListener("change", function () {
       NS.state.businessExpenses = business.checked === true;

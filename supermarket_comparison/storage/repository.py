@@ -536,22 +536,38 @@ class Repository:
         category: str | None,
         quantity: float | None,
         unit: str | None,
+        ean: str | None = None,
+        variant_group: str | None = None,
+        is_ambiguous: bool = False,
+        verified_count: int = 0,
     ) -> None:
+        import hashlib
         from datetime import UTC, datetime
 
+        from ..services.barcode import is_ambiguous_term
+
         now = datetime.now(tz=UTC).isoformat()
+        ambiguous = bool(is_ambiguous or is_ambiguous_term(raw_text_norm))
         self.db.execute(
             """
             INSERT INTO receipt_aliases
                 (store, raw_text_norm, normalized_name, brand, category,
-                 quantity, unit, hit_count, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                 quantity, unit, ean, variant_group, is_ambiguous,
+                 verified_count, hit_count, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
             ON CONFLICT(store, raw_text_norm) DO UPDATE SET
                 normalized_name = excluded.normalized_name,
-                brand           = excluded.brand,
+                brand           = COALESCE(excluded.brand, receipt_aliases.brand),
                 category        = excluded.category,
-                quantity        = excluded.quantity,
-                unit            = excluded.unit,
+                quantity        = COALESCE(excluded.quantity, receipt_aliases.quantity),
+                unit            = COALESCE(excluded.unit, receipt_aliases.unit),
+                ean             = COALESCE(excluded.ean, receipt_aliases.ean),
+                variant_group   = COALESCE(excluded.variant_group,
+                                           receipt_aliases.variant_group),
+                is_ambiguous    = MAX(receipt_aliases.is_ambiguous,
+                                      excluded.is_ambiguous),
+                verified_count  = receipt_aliases.verified_count
+                                  + excluded.verified_count,
                 hit_count       = hit_count + 1,
                 updated_at      = excluded.updated_at
             """,
@@ -563,10 +579,85 @@ class Repository:
                 category,
                 quantity,
                 unit,
+                ean,
+                variant_group,
+                1 if ambiguous else 0,
+                int(verified_count),
                 now,
                 now,
             ),
         )
+        if not ean:
+            return
+        alias = self.db.query_one(
+            "SELECT id, variant_group FROM receipt_aliases"
+            " WHERE store = ? AND raw_text_norm = ?",
+            (store, raw_text_norm),
+        )
+        if alias is None:
+            return
+        alias_id = int(alias["id"])
+        self.db.execute(
+            "INSERT OR IGNORE INTO alias_barcodes (alias_id, ean, quantity, unit)"
+            " VALUES (?, ?, ?, ?)",
+            (alias_id, ean, quantity, unit),
+        )
+        codes = self.db.query(
+            "SELECT ean FROM alias_barcodes WHERE alias_id = ?", (alias_id,)
+        )
+        group = variant_group or alias["variant_group"]
+        if len(codes) > 1 or group:
+            group = group or "vg-" + hashlib.sha1(
+                raw_text_norm.encode("utf-8")
+            ).hexdigest()[:12]
+            self.db.execute(
+                "UPDATE receipt_aliases SET variant_group = ? WHERE id = ?",
+                (group, alias_id),
+            )
+
+    def item_for_owner(
+        self, *, item_id: int, owner_token: str
+    ) -> dict[str, Any] | None:
+        """One receipt item plus its receipt metadata, owner-checked."""
+
+        row = self.db.query_one(
+            """
+            SELECT i.*, r.store, r.postal_code, r.shared_to_community
+              FROM user_receipt_items i
+              JOIN user_receipts r ON r.id = i.receipt_id
+             WHERE i.id = ? AND r.owner_token = ?
+            """,
+            (int(item_id), owner_token),
+        )
+        return dict(row) if row else None
+
+    def update_receipt_item(
+        self, *, item_id: int, owner_token: str, fields: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Update editable columns of one item; never touches the receipt id."""
+
+        allowed = {
+            "normalized_name",
+            "brand",
+            "quantity",
+            "unit",
+            "price_cents",
+            "category",
+            "ean",
+            "is_ambiguous",
+        }
+        updates = {key: value for key, value in fields.items() if key in allowed}
+        if not updates:
+            return self.item_for_owner(item_id=item_id, owner_token=owner_token)
+        clause = ", ".join(f"{key} = ?" for key in updates)
+        self.db.execute(
+            f"UPDATE user_receipt_items SET {clause}"
+            " WHERE id = ? AND receipt_id IN"
+            " (SELECT id FROM user_receipts WHERE owner_token = ?)",
+            (*updates.values(), int(item_id), owner_token),
+        )
+        return self.item_for_owner(item_id=item_id, owner_token=owner_token)
+
 
     async def ainsert_user_receipt(self, **kwargs: Any) -> int:
         return await asyncio.to_thread(self.insert_user_receipt, **kwargs)

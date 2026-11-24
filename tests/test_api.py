@@ -182,6 +182,8 @@ def test_openapi_schema_lists_all_endpoints(client: TestClient) -> None:
         "/api/v1/receipts/stats",
         "/api/v1/receipts/{receipt_id}",
         "/api/v1/receipts/{receipt_id}/items/{item_id}",
+        "/api/v1/receipts/items/{item_id}",
+        "/api/v1/receipts/items/{item_id}/link-barcode",
         "/api/v1/admin/database/schema",
         "/api/v1/products/search",
         "/api/v1/products/search/ranked",

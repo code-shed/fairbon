@@ -332,6 +332,33 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_barcode_quick_scan_flow_is_wired() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    platform = (FRONTEND / "js" / "platform.js").read_text()
+    receipts = (FRONTEND / "js" / "views" / "receipts.js").read_text()
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text()
+    api = (FRONTEND / "js" / "api.js").read_text()
+
+    # Scanner with manual fallback, no framework.
+    assert "BarcodeDetector" in platform
+    assert "askEan" in platform
+    assert "scanBarcode" in platform
+    # Eligibility guard, fuzzy match and one-click confirmation.
+    assert "function canScanItem" in receipts
+    assert "function fuzzyMatch" in receipts
+    assert "function startQuickScan" in receipts
+    assert "Barcode scannen" in receipts
+    assert "Stimmt hier etwas nicht?" in receipts
+    assert "price.replace(\".\", \",\")" in receipts  # search by price
+    # Micro-contribution banner after saving.
+    assert 'id="barcode-banner"' in html
+    assert "quick-scan-banner" in sheet and "quick-scan-banner" in receipts
+    # Document scanner toggle reaches canvas preprocessing.
+    assert 'id="settings-doc-enhance"' in html
+    assert "NS.state.docEnhance !== false" in sheet
+    assert "patchJson" in api
+
+
 def test_overview_polish_is_wired() -> None:
     html = (FRONTEND / "index.html").read_text()
     css = (FRONTEND / "css" / "styles.css").read_text()
@@ -380,7 +407,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v16" in sw
+    assert "fairbon-v17" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

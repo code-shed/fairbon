@@ -89,6 +89,17 @@
       }).then(parse).catch(networkError);
     },
 
+    patchJson: function (path, payload, options) {
+      options = options || {};
+      var h = headers(options.headers);
+      h["Content-Type"] = "application/json";
+      return fetch(url(path), {
+        method: "PATCH",
+        headers: h,
+        body: JSON.stringify(payload)
+      }).then(parse).catch(networkError);
+    },
+
     blob: function (path, options) {
       options = options || {};
       return fetch(url(path), {

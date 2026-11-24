@@ -155,3 +155,31 @@ def test_migrate_normalizes_stored_categories(tmp_path) -> None:
 
     assert items[0]["category"] == "Getränke"
     assert aliases_category == "Getränke"
+
+
+def test_migrate_adds_barcode_and_variant_fields(tmp_path) -> None:
+    path = str(tmp_path / "barcodes.db")
+    database = Database(path)
+    database.close()
+
+    database = Database(path)
+    conn = database._conn
+    item_cols = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(user_receipt_items)")
+    }
+    alias_cols = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(receipt_aliases)")
+    }
+    tables = {
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+    }
+    database.close()
+
+    assert {"ean", "is_ambiguous"} <= item_cols
+    assert {"ean", "variant_group", "is_ambiguous", "verified_count"} <= alias_cols
+    assert "alias_barcodes" in tables

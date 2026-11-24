@@ -77,6 +77,7 @@
     byokProvider: NS.storage.get("fairbon.byokProvider", "openai_compatible"),
     shareOptin: NS.storage.get("fairbon.share_optin.v1", true) === true,
     businessExpenses: NS.storage.get("fairbon.business_expenses", false) === true,
+    docEnhance: NS.storage.get("fairbon.doc_enhance", true) !== false,
     tab: "overview",
     month: ""
   };

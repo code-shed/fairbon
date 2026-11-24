@@ -26,7 +26,35 @@
     els.statusText = $("receipts-status-text");
     els.retry = $("receipts-retry");
     els.exportError = $("export-error");
+    els.banner = $("barcode-banner");
     if (!els.list) { return; }
+
+    NS.on("quick-scan-banner", function (payload) {
+      if (!els.banner || !payload || !payload.open) { return; }
+      els.banner.textContent = "";
+      var text = document.createElement("span");
+      text.textContent = payload.open + " von " + payload.total +
+        " Artikeln automatisch erkannt – magst du beim Auspacken kurz " +
+        "1–2 der übrigen scannen?";
+      var start = document.createElement("button");
+      start.type = "button";
+      start.className = "mini-btn";
+      start.textContent = "Schnell-Scan starten";
+      start.addEventListener("click", function () {
+        startQuickScan(payload.items || []);
+        els.banner.hidden = true;
+      });
+      var close = document.createElement("button");
+      close.type = "button";
+      close.className = "mini-btn";
+      close.setAttribute("aria-label", "Hinweis schließen");
+      close.textContent = "×";
+      close.addEventListener("click", function () { els.banner.hidden = true; });
+      els.banner.appendChild(text);
+      els.banner.appendChild(start);
+      els.banner.appendChild(close);
+      els.banner.hidden = false;
+    });
 
     els.search.addEventListener("input", function () {
       search = (els.search.value || "").trim().toLowerCase();
@@ -101,7 +129,11 @@
     if (String(receipt.store || "").toLowerCase().indexOf(search) >= 0) { return true; }
     return (receipt.items || []).some(function (item) {
       var name = String(item.normalized_name || item.raw_text || "").toLowerCase();
-      return name.indexOf(search) >= 0;
+      var price = ((item.price_cents || 0) / 100).toFixed(2);
+      return name.indexOf(search) >= 0 ||
+        String(item.quantity || "").indexOf(search) >= 0 ||
+        price.indexOf(search) >= 0 ||
+        price.replace(".", ",").indexOf(search) >= 0;
     });
   }
 
@@ -211,6 +243,111 @@
     activeReceipt = null;
   }
 
+  var SCAN_CATEGORIES = {
+    "Lebensmittel": true, "Getränke": true, "Drogerie": true, "Haushalt": true
+  };
+
+  function canScanItem(item) {
+    if (item.ean || item.is_ambiguous || !SCAN_CATEGORIES[item.category]) {
+      return false;
+    }
+    // Loose goods weighed in kg need no package barcode.
+    var unit = String(item.unit || "").toLowerCase();
+    return !(unit === "kg" && Number(item.quantity) < 1);
+  }
+
+  function openItems(receipt) {
+    return (receipt.items || []).filter(canScanItem);
+  }
+
+  function fuzzyMatch(name, items) {
+    var words = String(name || "").toLowerCase().split(/\W+/).filter(function (w) {
+      return w.length >= 3;
+    });
+    var best = null;
+    var bestScore = 0;
+    items.forEach(function (item) {
+      var text = String(item.normalized_name || item.raw_text || "").toLowerCase();
+      var brand = String(item.brand || "").toLowerCase();
+      var score = words.reduce(function (sum, word) {
+        return sum + (text.indexOf(word) >= 0 ? 2 : 0) +
+          (brand.indexOf(word) >= 0 ? 1 : 0);
+      }, 0);
+      if (score > bestScore) { bestScore = score; best = item; }
+    });
+    return bestScore > 0 ? best : null;
+  }
+
+  function confirmScan(product, item, onConfirm) {
+    var backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    var box = document.createElement("div");
+    box.className = "modal modal--sheet";
+    box.setAttribute("role", "dialog");
+    var title = document.createElement("h2");
+    title.textContent = "Barcode zuordnen";
+    var info = document.createElement("p");
+    info.className = "detail-note";
+    info.textContent = product.name +
+      (product.brand ? " · " + product.brand : "") +
+      " → " + (item.normalized_name || item.raw_text);
+    var actions = document.createElement("div");
+    actions.className = "modal-actions";
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "secondary";
+    cancel.textContent = "Abbrechen";
+    var ok = document.createElement("button");
+    ok.type = "button";
+    ok.className = "primary";
+    ok.textContent = "Bestätigen";
+    function close() {
+      if (backdrop.parentNode) { document.body.removeChild(backdrop); }
+      if (box.parentNode) { document.body.removeChild(box); }
+    }
+    cancel.addEventListener("click", close);
+    ok.addEventListener("click", function () { close(); onConfirm(); });
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    box.appendChild(title);
+    box.appendChild(info);
+    box.appendChild(actions);
+    document.body.appendChild(backdrop);
+    document.body.appendChild(box);
+  }
+
+  function startQuickScan(items) {
+    var queue = items.slice();
+    function step() {
+      if (!queue.length) { return; }
+      NS.platform.scanBarcode().then(function (ean) {
+        if (!ean) { return; }
+        NS.api.postJson(
+          "/api/v1/receipts/items/" + queue[0].id + "/link-barcode?preview=true",
+          { ean: ean }
+        ).then(function (product) {
+          var match = fuzzyMatch(product.name, queue) || queue[0];
+          confirmScan(product, match, function () { linkEan(ean, match, queue); });
+        }).catch(function () { linkEan(ean, queue[0], queue); });
+      });
+    }
+    step();
+  }
+
+  function linkEan(ean, item, queue) {
+    NS.api.postJson(
+      "/api/v1/receipts/items/" + item.id + "/link-barcode", { ean: ean }
+    ).then(function () {
+      var index = queue.indexOf(item);
+      if (index >= 0) { queue.splice(index, 1); }
+      load();
+      startQuickScan(queue);
+    }).catch(function (error) {
+      $("receipt-error").hidden = false;
+      $("receipt-error").textContent = error.message || "Barcode konnte nicht gespeichert werden.";
+    });
+  }
+
   function renderItems(receipt) {
     els.items.textContent = "";
     (receipt.items || []).forEach(function (item) {
@@ -286,6 +423,15 @@
       });
       actions.appendChild(add);
 
+      if (canScanItem(item)) {
+        var scan = document.createElement("button");
+        scan.type = "button";
+        scan.className = "mini-btn";
+        scan.textContent = "Barcode scannen";
+        scan.addEventListener("click", function () { startQuickScan([item]); });
+        actions.appendChild(scan);
+      }
+
       li.appendChild(actions);
       els.items.appendChild(li);
     });
@@ -300,6 +446,83 @@
         " durch Rabatte gespart";
       els.items.appendChild(line);
     }
+
+    var fix = document.createElement("button");
+    fix.type = "button";
+    fix.className = "btn-link fix-link";
+    fix.textContent = "Stimmt hier etwas nicht?";
+    fix.addEventListener("click", function () { toggleEdit(receipt); });
+    els.items.appendChild(fix);
+  }
+
+  var EDIT_CATEGORIES = [
+    "Lebensmittel", "Getränke", "Drogerie", "Haushalt",
+    "Bäcker/Gastronomie", "Technik/Non-Food", "Pfand", "Sonstiges"
+  ];
+
+  function toggleEdit(receipt) {
+    var existing = els.items.querySelectorAll(".item-editor");
+    if (existing.length) {
+      Array.prototype.forEach.call(existing, function (row) {
+        if (row.parentNode) { row.parentNode.removeChild(row); }
+      });
+      return;
+    }
+    receipt.items.forEach(function (item) {
+      var box = document.createElement("li");
+      box.className = "item-editor";
+      var name = document.createElement("input");
+      name.type = "text";
+      name.value = item.normalized_name || item.raw_text || "";
+      name.setAttribute("aria-label", "Name");
+      var quantity = document.createElement("input");
+      quantity.type = "number";
+      quantity.min = "0.01";
+      quantity.step = "0.01";
+      quantity.value = String(item.quantity || 1);
+      quantity.setAttribute("aria-label", "Menge");
+      var price = document.createElement("input");
+      price.type = "number";
+      price.min = "0";
+      price.step = "0.01";
+      price.value = ((item.price_cents || 0) / 100).toFixed(2);
+      price.setAttribute("aria-label", "Preis in Euro");
+      var category = document.createElement("select");
+      category.setAttribute("aria-label", "Kategorie");
+      EDIT_CATEGORIES.forEach(function (value) {
+        var option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        if (value === item.category) { option.selected = true; }
+        category.appendChild(option);
+      });
+      var save = document.createElement("button");
+      save.type = "button";
+      save.className = "mini-btn";
+      save.textContent = "Speichern";
+      save.addEventListener("click", function () {
+        save.disabled = true;
+        NS.api.patchJson("/api/v1/receipts/items/" + item.id, {
+          name: name.value,
+          quantity: Number(quantity.value) || 1,
+          price_cents: Math.round((Number(price.value) || 0) * 100),
+          category: category.value
+        }).then(function () {
+          load();
+          closeDetail();
+        }).catch(function (error) {
+          save.disabled = false;
+          $("receipt-error").hidden = false;
+          $("receipt-error").textContent = error.message || "Änderung fehlgeschlagen.";
+        });
+      });
+      box.appendChild(name);
+      box.appendChild(quantity);
+      box.appendChild(price);
+      box.appendChild(category);
+      box.appendChild(save);
+      els.items.appendChild(box);
+    });
   }
 
   function setPrivate(item, value) {

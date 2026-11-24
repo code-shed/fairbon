@@ -86,6 +86,45 @@ class Database:
                 " INTEGER NOT NULL DEFAULT 0"
             )
 
+        # Barcode / variant mapping fields (idempotent column additions).
+        additions = {
+            "user_receipt_items": {
+                "ean": "TEXT",
+                "is_ambiguous": "INTEGER NOT NULL DEFAULT 0",
+            },
+            "receipt_aliases": {
+                "ean": "TEXT",
+                "variant_group": "TEXT",
+                "is_ambiguous": "INTEGER NOT NULL DEFAULT 0",
+                "verified_count": "INTEGER NOT NULL DEFAULT 0",
+            },
+        }
+        for table, columns in additions.items():
+            present = {
+                row["name"]
+                for row in self._conn.execute(
+                    f"PRAGMA table_info({table})"
+                ).fetchall()
+            }
+            for column, definition in columns.items():
+                if column not in present:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                    )
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS alias_barcodes (
+                alias_id INTEGER NOT NULL REFERENCES receipt_aliases(id)
+                    ON DELETE CASCADE,
+                ean TEXT NOT NULL,
+                quantity REAL,
+                unit TEXT,
+                PRIMARY KEY (alias_id, ean)
+            )
+            """
+        )
+        self._conn.commit()
+
         # Normalise stored category spellings (Getraenke -> Getränke) in
         # both receipt items and learned aliases; idempotent.
         from ..normalization.categories import normalize_category
