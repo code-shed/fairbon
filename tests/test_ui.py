@@ -482,6 +482,11 @@ def test_barcode_quick_scan_flow_is_wired() -> None:
     assert "Stimmt hier etwas nicht?" not in receipts
     assert "receipt-store-options" in receipts  # store is editable
     assert 'NS.api.patchJson("/api/v1/receipts/" + receipt.id' in receipts
+    assert "Position gespeichert." in receipts
+    assert "Markt gespeichert." in receipts
+    assert 'id="receipt-feedback"' in (
+        FRONTEND / "index.html"
+    ).read_text(encoding="utf-8")
     assert "price.replace(\".\", \",\")" in receipts  # search by price
     # Micro-contribution banner after saving.
     assert 'id="barcode-banner"' in html
@@ -540,7 +545,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v32" in sw
+    assert "fairbon-v33" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

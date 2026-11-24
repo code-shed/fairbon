@@ -26,6 +26,7 @@
     els.statusText = $("receipts-status-text");
     els.retry = $("receipts-retry");
     els.exportError = $("export-error");
+    els.feedback = $("receipt-feedback");
     els.banner = $("barcode-banner");
     if (!els.list) { return; }
 
@@ -503,6 +504,7 @@
           $("receipt-title").textContent = NS.storeInfo(value).label;
           load();
           renderItems(receipt);
+          showReceiptFeedback("Markt gespeichert.");
         }).catch(function (error) {
           storeSave.disabled = false;
           $("receipt-error").hidden = false;
@@ -533,6 +535,8 @@
       price.step = "0.01";
       price.value = ((item.price_cents || 0) / 100).toFixed(2);
       price.setAttribute("aria-label", "Preis in Euro");
+      price.setAttribute("placeholder", "Preis in €");
+      price.setAttribute("title", "Preis in Euro, z. B. 2.49");
       var category = document.createElement("select");
       category.setAttribute("aria-label", "Kategorie");
       EDIT_CATEGORIES.forEach(function (value) {
@@ -554,8 +558,13 @@
           price_cents: Math.round((Number(price.value) || 0) * 100),
           category: category.value
         }).then(function () {
+          item.normalized_name = name.value;
+          item.quantity = Number(quantity.value) || 1;
+          item.price_cents = Math.round((Number(price.value) || 0) * 100);
+          item.category = category.value;
           load();
-          closeDetail();
+          renderItems(receipt);
+          showReceiptFeedback("Position gespeichert.");
         }).catch(function (error) {
           save.disabled = false;
           $("receipt-error").hidden = false;
@@ -569,6 +578,16 @@
       box.appendChild(save);
       els.items.appendChild(box);
     });
+  }
+
+  function showReceiptFeedback(text) {
+    $("receipt-error").hidden = true;
+    if (!els.feedback) { return; }
+    els.feedback.textContent = text;
+    els.feedback.hidden = false;
+    global.setTimeout(function () {
+      if (els.feedback) { els.feedback.hidden = true; }
+    }, 2600);
   }
 
   function setPrivate(item, value) {

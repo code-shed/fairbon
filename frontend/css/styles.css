@@ -1518,3 +1518,5 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
   left: 16px; bottom: calc(20px + env(safe-area-inset-bottom));
   font-size: .9rem !important;
 }
+#receipt-feedback { color: var(--accent); font-weight: 600; margin: 8px 0; }
+#receipt-feedback[hidden] { display: none; }
