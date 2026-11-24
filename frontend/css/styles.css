@@ -1539,7 +1539,7 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 .receipts-search-wrap input { padding-right: 48px !important; }
 #receipts-search-clear {
   position: absolute; right: 4px; top: 4px;
-  min-width: 40px; min-height: 40px;
+  min-width: 44px; min-height: 44px;
   border: 0; background: none; color: var(--muted);
   font-size: 1.4rem; cursor: pointer;
 }
@@ -1585,7 +1585,7 @@ form.search label.switch { flex-wrap: wrap; white-space: normal; overflow-wrap: 
   font-size: .82rem;
 }
 .share-details[hidden] { display: none; }
-.share-details summary { cursor: pointer; min-height: 32px; color: var(--muted); }
+.share-details summary { cursor: pointer; min-height: 44px; color: var(--muted); }
 .share-details ul { margin: 6px 0 0; padding-left: 18px; }
 /* Switch labels may wrap instead of overflowing narrow grid cells. */
 form.search label.switch {

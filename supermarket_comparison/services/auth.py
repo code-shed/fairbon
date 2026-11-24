@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 import time
 from typing import Final
@@ -24,8 +25,11 @@ from fastapi import Request, Response
 from ..config import Settings
 
 COOKIE_NAME: Final = "spv_session"
+ADMIN_COOKIE_NAME: Final = "spv_admin_session"
 #: How long a login stays valid (seconds): 30 days.
 SESSION_TTL: Final = 60 * 60 * 24 * 30
+#: Short-lived admin session (12 h) for the dedicated admin login view.
+ADMIN_SESSION_TTL: Final = 60 * 60 * 12
 
 #: Paths that bypass the gate entirely.
 PUBLIC_PATHS: Final = frozenset(
@@ -40,6 +44,18 @@ PUBLIC_PATHS: Final = frozenset(
         "/sw.js",
     }
 )
+
+
+def _uses_https(settings: Settings, request: Request | None) -> bool:
+    """TLS detection: direct scheme, or trusted forwarding header."""
+
+    if request is None:
+        return False
+    if request.url.scheme == "https":
+        return True
+    if settings.trust_proxy:
+        return (request.headers.get("x-forwarded-proto") or "").lower() == "https"
+    return False
 
 
 def _secret(settings: Settings) -> bytes:
@@ -88,6 +104,38 @@ def password_matches(settings: Settings, candidate: str | None) -> bool:
     return hmac.compare_digest(settings.site_password, candidate)
 
 
+def _admin_secret(settings: Settings) -> bytes:
+    raw = "admin|" + (settings.admin_password or settings.session_secret or "public")
+    return hashlib.sha256(raw.encode("utf-8")).digest()
+
+
+def issue_admin_token(settings: Settings, *, now: float | None = None) -> str:
+    expiry = int((now if now is not None else time.time()) + ADMIN_SESSION_TTL)
+    payload = str(expiry)
+    signature = hmac.new(
+        _admin_secret(settings), payload.encode(), hashlib.sha256
+    ).hexdigest()
+    return f"{expiry}.{signature}"
+
+
+def admin_token_is_valid(
+    settings: Settings, token: str | None, *, now: float | None = None
+) -> bool:
+    if not settings.admin_password or not token or "." not in token:
+        return False
+    expiry_text, signature = token.split(".", 1)
+    try:
+        expiry = int(expiry_text)
+    except ValueError:
+        return False
+    if expiry < (now if now is not None else time.time()):
+        return False
+    expected = hmac.new(
+        _admin_secret(settings), expiry_text.encode(), hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
 def admin_password_matches(settings: Settings, candidate: str | None) -> bool:
     """Constant-time comparison of an admin password candidate.
 
@@ -119,26 +167,19 @@ ADMIN_PATHS: Final = frozenset(
 
 
 def is_admin_path(path: str) -> bool:
-    """Whether *path* is an admin-only area (prefix match for sub-routes)."""
+    """Whether *path* is an admin-only area (exact paths and sub-routes)."""
 
-    # Moderation of a specific price: /crowd/prices/<id>/approve|reject
-    if "/crowd/prices/" in path and path.endswith(("/approve", "/reject")):
-        return True
+    # The dedicated login view must stay reachable without an admin session.
+    if path.rstrip("/") == "/admin/login":
+        return False
     for prefix in ADMIN_PATHS:
         if path == prefix or path.startswith(prefix + "/"):
             return True
-        # routers may be mounted under SUPERMARKET_API_PREFIX
-        if path.endswith(prefix) or path.endswith(prefix + "/"):
+        # Routers may be mounted under a configurable API prefix.
+        if path.endswith(prefix) or path.endswith(prefix.rstrip("/") + "/"):
             return True
-        if (prefix + "/") in path:
-            return True
-    return False
-
-
-def is_admin_authenticated(request: Request, settings: Settings) -> bool:
-    """Constant-time admin check via Basic auth (no cookie for the admin)."""
-
-    return admin_password_matches(settings, basic_password(request))
+    # Moderation of a specific price, optionally behind an arbitrary prefix.
+    return bool(re.search(r"/crowd/prices/[^/]+/(approve|reject)/?$", path))
 
 
 def basic_password(request: Request) -> str | None:
@@ -165,25 +206,53 @@ def is_authenticated(request: Request, settings: Settings) -> bool:
 
 
 def is_public_path(path: str) -> bool:
-    return (
-        path in PUBLIC_PATHS or path.startswith("/docs") or path.startswith("/openapi")
-    )
+    """Paths reachable without the site password (health, login, static)."""
+
+    return path in PUBLIC_PATHS
 
 
-def set_session_cookie(response: Response, settings: Settings) -> None:
+def set_session_cookie(
+    response: Response, settings: Settings, request: Request | None = None
+) -> None:
     response.set_cookie(
         COOKIE_NAME,
         issue_token(settings),
         max_age=SESSION_TTL,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=_uses_https(settings, request),
         path="/",
     )
 
 
 def clear_session_cookie(response: Response) -> None:
     response.delete_cookie(COOKIE_NAME, path="/")
+
+
+def is_admin_authenticated(request: Request, settings: Settings) -> bool:
+    """Admin session cookie or Basic auth — both use constant-time checks."""
+
+    return admin_token_is_valid(
+        settings, request.cookies.get(ADMIN_COOKIE_NAME)
+    ) or admin_password_matches(settings, basic_password(request))
+
+
+def set_admin_session_cookie(
+    response: Response, settings: Settings, request: Request | None = None
+) -> None:
+    response.set_cookie(
+        ADMIN_COOKIE_NAME,
+        issue_admin_token(settings),
+        max_age=ADMIN_SESSION_TTL,
+        httponly=True,
+        samesite="strict",
+        secure=_uses_https(settings, request),
+        path="/",
+    )
+
+
+def clear_admin_session_cookie(response: Response) -> None:
+    response.delete_cookie(ADMIN_COOKIE_NAME, path="/")
 
 
 def random_secret() -> str:
@@ -193,20 +262,26 @@ def random_secret() -> str:
 
 
 __all__ = [
+    "ADMIN_COOKIE_NAME",
     "ADMIN_PATHS",
+    "ADMIN_SESSION_TTL",
     "COOKIE_NAME",
     "PUBLIC_PATHS",
     "SESSION_TTL",
     "admin_password_matches",
+    "admin_token_is_valid",
     "basic_password",
+    "clear_admin_session_cookie",
     "clear_session_cookie",
     "is_admin_authenticated",
     "is_admin_path",
     "is_authenticated",
     "is_public_path",
+    "issue_admin_token",
     "issue_token",
     "password_matches",
     "random_secret",
+    "set_admin_session_cookie",
     "set_session_cookie",
     "token_is_valid",
 ]

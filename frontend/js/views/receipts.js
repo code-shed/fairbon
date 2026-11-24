@@ -687,7 +687,7 @@
     var receiptId = activeReceipt.id;
     var button = $("receipt-delete");
     button.disabled = true;
-    NS.toast("Bon gelöscht – rückgängig", "Rückgängig", function (undo) {
+    NS.toast("Bon wird in 5 Sekunden gelöscht – Rückgängig", "Rückgängig", function (undo) {
       if (undo) {
         button.disabled = false;
         showReceiptFeedback("Löschen abgebrochen.");

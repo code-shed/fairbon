@@ -254,7 +254,7 @@
     var controller = global.AbortController ? new global.AbortController() : null;
     activeScan = controller;
     var filename = file.name || "receipt";
-    var isText = !isImage && /\.(txt|text)$/i.test(filename);
+    var isText = !isImage && /\.txt$/i.test(filename);
     var labelPrepare = isImage
       ? "Datei wird lokal verkleinert & hochgeladen…"
       : "Datei wird vorbereitet & hochgeladen…";

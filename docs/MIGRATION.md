@@ -108,6 +108,6 @@ curl -s localhost:8000/health
 See [`SECURITY_DEPLOYMENT.md`](../SECURITY_DEPLOYMENT.md):
 
 ```bash
-mkdir -p data && chown -R 1000:1000 data
+mkdir -p data && sudo chown -R 1000:1000 data
 docker compose up -d --build
 ```

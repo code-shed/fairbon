@@ -26,7 +26,7 @@
       if (!NS.basket.length) { return; }
       var previous = NS.basket.slice();
       NS.clearBasket();
-      NS.toast("Merkliste geleert – rückgängig", "Rückgängig", function (undo) {
+      NS.toast("Merkliste wird in 5 Sekunden geleert – Rückgängig", "Rückgängig", function (undo) {
         if (!undo) { return; }
         NS.basket = previous;
         NS.saveBasket();

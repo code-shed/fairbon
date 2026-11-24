@@ -46,6 +46,7 @@ _ENV_ALIASES: Final[dict[str, str]] = {
     "vision_fallback_provider": "VISION_FALLBACK_PROVIDER",
     "vision_fallback_api_key": "VISION_FALLBACK_API_KEY",
     "vision_fallback_model": "VISION_FALLBACK_MODEL",
+    "vision_openai_base_url": "VISION_OPENAI_BASE_URL",
     "max_scans_per_day_per_ip": "MAX_SCANS_PER_DAY_PER_IP",
     "max_global_scans_per_day": "MAX_GLOBAL_SCANS_PER_DAY",
     "turnstile_site_key": "TURNSTILE_SITE_KEY",

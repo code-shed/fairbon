@@ -346,11 +346,13 @@ async def datenschutz() -> HTMLResponse:
       PDF-/Textparser) und ohne Weitergabe an eine externe KI-API ausgewertet.</p>
     <p><strong>Papier-Foto-Scan – Browser:</strong> Das Foto wird bereits in
       deinem Browser verkleinert und in Graustufen umgewandelt.</p>
-    <p><strong>Papier-Foto-Scan – FairBon-Server:</strong> Serverseitig wird das
-      Bild im Arbeitsspeicher geprüft (Magic-Bytes) und von EXIF-/GPS-Metadaten
-      befreit. Für die Auswertung wird es an {vision} übermittelt; nach
-      Abschluss der Antwort wird es verworfen. FairBon speichert das
-      Belegfoto nicht dauerhaft. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b
+    <p><strong>Papier-Foto-Scan – FairBon-Server:</strong> Die Bereinigung
+      (Magic-Bytes-Prüfung, EXIF-/GPS-Entfernung) läuft im Arbeitsspeicher;
+      bei lokaler OCR werden vorübergehend angelegte temporäre Arbeitsdateien
+      nach der Texterkennung wieder gelöscht. Für die Auswertung wird das Bild
+      an {vision} übermittelt; nach Abschluss der Antwort wird es verworfen.
+      FairBon speichert das Belegfoto nicht dauerhaft. Rechtsgrundlage ist
+      Art. 6 Abs. 1 lit. b
       DSGVO (Durchführung der von dir aktiv ausgelösten Belegauswertung).
       Zahlungs-, EC- und TSE-Daten sowie genaue Uhrzeiten werden nicht
       gespeichert.</p>
@@ -362,7 +364,9 @@ async def datenschutz() -> HTMLResponse:
     <p>Geteilt werden ausschließlich Produktbezeichnung/EAN, Preis,
       Handelskette, PLZ-Region und Datum – ohne <code>owner_token</code>, ohne
       <code>receipt_id</code> (kein verknüpfter Gesamt-Warenkorb), ohne genaue
-      Uhrzeit und ohne Zahlungsdaten. Erfasst werden nur die
+      Uhrzeit des Kassenbons (gespeichert wird der technische
+      Erfassungszeitpunkt ohne Personen- oder Belegbezug) und ohne
+      Zahlungsdaten. Erfasst werden nur die
       preisvergleichsrelevanten Kategorien Lebensmittel, Getränke, Drogerie und
       Haushalt. {sharing}</p>
     <p>Bereits ohne Zuordnung zu einem Nutzerkonto oder Beleg gespeicherte

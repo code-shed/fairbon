@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request
 from fastapi.encoders import jsonable_encoder
@@ -28,12 +29,15 @@ from fastapi.staticfiles import StaticFiles
 from ..config import get_settings
 from ..services.aggregator import Aggregator
 from ..services.auth import (
+    admin_password_matches,
+    clear_admin_session_cookie,
     clear_session_cookie,
     is_admin_authenticated,
     is_admin_path,
     is_authenticated,
     is_public_path,
     password_matches,
+    set_admin_session_cookie,
     set_session_cookie,
 )
 from ..services.rate_limit import allow_read
@@ -160,6 +164,35 @@ LOGIN_HTML = """<!DOCTYPE html>
 </main>
 </body>
 </html>"""
+
+
+def _admin_login_html(*, next_path: str, error: bool) -> str:
+    safe = (
+        next_path
+        if next_path.startswith("/") and not next_path.startswith("//")
+        else "/admin"
+    )
+    html = (
+        LOGIN_HTML.replace(
+            "Anmeldung · Supermarkt-Preisvergleich", "Admin-Anmeldung · FairBon"
+        )
+        .replace("<h1>Supermarkt-Preisvergleich</h1>", "<h1>Admin-Zugang</h1>")
+        .replace(
+            "Diese Seite ist während der Aufbauphase geschützt. "
+            "Bitte Passwort eingeben.",
+            "Bitte gib das separate Admin-Passwort ein.",
+        )
+        .replace('action="/login"', 'action="/admin/login"')
+        .replace(
+            "Tipp: API-Clients nutzen HTTP Basic Auth (beliebiger Benutzername).",
+            "Der Admin-Zugang ist bewusst nicht im normalen Einstellungs-Menü "
+            "verlinkt.",
+        )
+    )
+    return html.replace("__NEXT__", safe).replace(
+        "__ERROR__",
+        '<p class="error">Admin-Passwort falsch.</p>' if error else "",
+    )
 
 
 def _login_html(*, next_path: str, error: bool) -> str:
@@ -391,6 +424,11 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
                     status_code=503,
                 )
             if not is_admin_authenticated(request, current):
+                wants_html = "text/html" in (request.headers.get("accept") or "")
+                if wants_html:
+                    return RedirectResponse(
+                        "/admin/login?next=" + quote(path), status_code=303
+                    )
                 return JSONResponse(
                     {"detail": "Nicht autorisiert."},
                     status_code=401,
@@ -474,6 +512,7 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
 
     @app.post("/login", include_in_schema=False)
     async def login_submit(
+        request: Request,
         password: str = Form(""),
         next: str = Form("/"),
     ) -> Response:
@@ -486,13 +525,47 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
         if not password_matches(current, password):
             return RedirectResponse("/login?error=1", status_code=303)
         response = RedirectResponse(target, status_code=303)
-        set_session_cookie(response, current)
+        set_session_cookie(response, current, request)
         return response
 
     @app.post("/logout", include_in_schema=False)
     async def logout() -> Response:
         response = RedirectResponse("/login", status_code=303)
         clear_session_cookie(response)
+        return response
+
+    @app.get("/admin/login", include_in_schema=False)
+    async def admin_login_page(next: str = "/admin", error: str = "") -> HTMLResponse:
+        return HTMLResponse(
+            content=_admin_login_html(next_path=next, error=bool(error)),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.post("/admin/login", include_in_schema=False)
+    async def admin_login_submit(
+        request: Request,
+        password: str = Form(""),
+        next: str = Form("/admin"),
+    ) -> Response:
+        current = get_settings()
+        target = (
+            next
+            if next.startswith("/")
+            and not next.startswith("//")
+            and "\\" not in next
+            and not next.startswith("/admin/login")
+            else "/admin"
+        )
+        if not admin_password_matches(current, password):
+            return RedirectResponse("/admin/login?error=1", status_code=303)
+        response = RedirectResponse(target, status_code=303)
+        set_admin_session_cookie(response, current, request)
+        return response
+
+    @app.post("/admin/logout", include_in_schema=False)
+    async def admin_logout() -> Response:
+        response = RedirectResponse("/admin/login", status_code=303)
+        clear_admin_session_cookie(response)
         return response
 
     @app.get("/admin", include_in_schema=False)

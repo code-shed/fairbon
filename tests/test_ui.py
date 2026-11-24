@@ -399,7 +399,7 @@ def test_clearing_the_basket_has_undo_toast() -> None:
     listing = (FRONTEND / "js" / "views" / "list.js").read_text()
 
     assert "basketClear.addEventListener" in listing
-    assert "Merkliste geleert – rückgängig" in listing
+    assert "Merkliste wird in 5 Sekunden geleert – Rückgängig" in listing
     assert "NS.toast(" in listing
 
 
@@ -567,7 +567,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v44" in sw
+    assert "fairbon-v45" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -578,10 +578,11 @@ def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
     assert "100 % Open Source · Alle Angaben ohne Gewähr" in html
 
 
-def test_admin_link_exists_in_settings(client: TestClient) -> None:
+def test_admin_link_is_absent_from_user_settings(client: TestClient) -> None:
     html = client.get("/").text
 
-    assert 'href="/admin"' in html
+    assert 'href="/admin"' not in html
+    assert "Admin-Zugang" not in html
 
 
 # -- admin gate (fail-closed) ---------------------------------------------
@@ -935,8 +936,8 @@ def test_prebeta_quick_wins_are_wired() -> None:
     )
 
     assert 'id="toast"' in html and "NS.toast =" in app
-    assert "Bon gelöscht – rückgängig" in receipts
-    assert "Merkliste geleert – rückgängig" in listing
+    assert "Bon wird in 5 Sekunden gelöscht – Rückgängig" in receipts
+    assert "Merkliste wird in 5 Sekunden geleert – Rückgängig" in listing
     assert 'id="offline-badge"' in html
     assert 'NS.emit("api-offline")' in api
     assert 'id="share-details"' in html and "renderSharePreview" in sheet
