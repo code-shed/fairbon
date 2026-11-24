@@ -203,7 +203,6 @@
     var docEnhance = $("settings-doc-enhance");
     var systemTheme = $("settings-system-theme");
     var themeBtn = $("settings-theme-btn");
-    var coloredBadges = $("settings-colored-badges");
     var haptics = $("settings-haptics");
     var tokenCopy = $("settings-token-copy");
     var tokenRestore = $("settings-token-restore");
@@ -251,7 +250,6 @@
       business.checked = NS.state.businessExpenses === true;
       docEnhance.checked = NS.state.docEnhance !== false;
       systemTheme.checked = (NS.state.themeMode || "system") === "system";
-      coloredBadges.checked = NS.state.coloredBadges !== false;
       haptics.checked = NS.state.haptics !== false;
       storageInfo();
       applyTheme();
@@ -303,11 +301,6 @@
       NS.storage.set("fairbon.theme_mode", NS.state.themeMode);
       applyTheme();
       NS.haptic();
-    });
-    coloredBadges.addEventListener("change", function () {
-      NS.state.coloredBadges = coloredBadges.checked === true;
-      NS.storage.set("fairbon.colored_badges", NS.state.coloredBadges);
-      NS.emit("receipts-changed");
     });
     haptics.addEventListener("change", function () {
       NS.state.haptics = haptics.checked === true;

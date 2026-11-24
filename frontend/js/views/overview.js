@@ -8,8 +8,7 @@
   var months = [];
   var monthIndex = 0;
   var loaded = false;
-  var ringMode = "budget";
-  var lastMonth = "";
+  var lastMonth = ""
   var lastData = null;
 
   function $(id) { return document.getElementById(id); }
@@ -27,7 +26,6 @@
     els.status = $("overview-status");
     els.statusText = $("overview-status-text");
     els.retry = $("overview-retry");
-    els.ringIndicator = $("ring-indicator");
     els.emptyHint = $("overview-empty-hint");
     if (!els.label) { return; }
 
@@ -35,13 +33,6 @@
     els.retry.addEventListener("click", load);
     $("month-prev").addEventListener("click", function () { shiftMonth(1); });
     $("month-next").addEventListener("click", function () { shiftMonth(-1); });
-    if (els.donut) {
-      els.donut.style.cursor = "pointer";
-      els.donut.addEventListener("click", toggleRingMode);
-    }
-    if (els.ringIndicator) {
-      els.ringIndicator.addEventListener("click", toggleRingMode);
-    }
 
     NS.on("receipts-changed", load);
     load();
@@ -92,11 +83,6 @@
   function currentMonth() {
     var now = new Date();
     return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
-  }
-
-  function toggleRingMode() {
-    ringMode = ringMode === "budget" ? "savings" : "budget";
-    if (lastMonth) { render(lastMonth, lastData); }
   }
 
   function shortDate(iso) {
@@ -154,16 +140,7 @@
     }
 
     var budget = Number(NS.state.budget) || 0;
-    var savings = (data.discount_cents || 0) / 100;
-    if (ringMode === "savings") {
-      var savedRatio = budget > 0
-        ? savings / budget
-        : (total > 0 ? savings / (total / 100) : 0);
-      els.budgetHint.textContent = savings > 0
-        ? "Ersparnis durch Rabatte · " + euro.format(savings)
-        : "Noch keine Rabatte erfasst";
-      drawDonut(Math.min(1, Math.max(0, savedRatio)), "var(--accent)");
-    } else if (budget > 0) {
+    if (budget > 0) {
       var remainingCents = Math.max(0, Math.round(budget * 100) - total);
       var remaining = remainingCents / 100;
       var ratio = remainingCents / (budget * 100);
@@ -178,10 +155,6 @@
       els.budgetHint.textContent = "Ausgaben";
       drawDonut(total > 0 ? 0.72 : 0, "var(--accent)");
     }
-    if (els.ringIndicator) {
-      els.ringIndicator.textContent = ringMode === "budget" ? "● ○" : "○ ●";
-    }
-
     renderCategories(data.categories || [], total);
   }
 

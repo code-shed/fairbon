@@ -376,13 +376,14 @@ def test_phase_c_onboarding_theme_and_haptics_are_wired() -> None:
     assert ".dashboard-tiles" in css
     # Settings sections and appearance controls.
     for key in ("settings-theme-btn", "settings-haptics",
-                "settings-colored-badges", "settings-storage-info",
-                "settings-clear-cache", "settings-changelog",
-                "settings-onboarding"):
+                "settings-storage-info", "settings-clear-cache",
+                "settings-changelog", "settings-onboarding"):
         assert 'id="' + key + '"' in html
     assert ':root[data-theme="dark"]' in css
     assert ".theme-switch" in css and ".store-badge" in css
     assert "themeMode" in state
+    assert 'id="settings-colored-badges"' not in html  # always on, no logo swap
+    assert "coloredBadges" not in state
     assert "applyTheme" in app
     # Haptics on scan, save and list interaction; neutral badge styling.
     assert "navigator.vibrate" in state
@@ -402,10 +403,11 @@ def test_dynamic_budget_ring_is_wired() -> None:
     assert 'id="settings-budget-start"' in html
     assert "fairbon.budget_start" in state and "budgetStart" in app
     assert "start_day=" in overview
-    assert "ringMode" in overview and "toggleRingMode" in overview
+    assert "toggleRingMode" not in overview  # single, always-on ring
     assert "#d99b26" in overview and "#d64545" in overview
-    assert " / Tag" in overview and "Ersparnis durch Rabatte" in overview
-    assert 'id="ring-indicator"' in html
+    assert " / Tag" in overview
+    assert "total / (budget * 100)" in overview  # spent share fills the ring
+    assert 'id="ring-indicator"' not in html
     assert 'id="overview-empty-hint"' in html
     assert "empty-ring" in css
 
@@ -485,7 +487,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v23" in sw
+    assert "fairbon-v24" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:

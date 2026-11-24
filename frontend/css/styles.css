@@ -1372,13 +1372,6 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
 
 
 /* --- Budget ring modes & empty state (Phase B) ------------------------- */
-.ring-indicator {
-  display: block; width: 100%; min-height: 44px;
-  border: 0; background: none; cursor: pointer;
-  text-align: center; color: var(--muted); font-size: .8rem;
-  letter-spacing: .35em; margin: -4px 0 8px;
-}
-.ring-indicator:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--radius-sm); }
 .empty-ring {
   width: 84px; height: 84px; margin: 4px auto 12px;
   border-radius: 50%; border: 8px solid var(--surface-alt);
@@ -1453,4 +1446,11 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 18%, var(--su
   padding: 10px 12px; border-left: 3px solid var(--accent);
   background: var(--accent-soft); color: var(--text);
   border-radius: var(--radius-sm); font-size: .84rem;
+}
+
+
+/* Backup card keeps its full border even as the first settings section. */
+.settings-section.backup-card:first-child {
+  border-top: 1px solid var(--accent);
+  padding-top: 14px;
 }

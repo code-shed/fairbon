@@ -83,7 +83,6 @@
     docEnhance: NS.storage.get("fairbon.doc_enhance", true) !== false,
     themeMode: NS.storage.get("fairbon.theme_mode", "system"),
     haptics: NS.storage.get("fairbon.haptics", true) !== false,
-    coloredBadges: NS.storage.get("fairbon.colored_badges", true) !== false,
     tokenBackedUp: NS.storage.get("fairbon.token_backed_up", false) === true,
     onboardingDone: NS.storage.get("fairbon.onboarding_done", false) === true,
     onboardingSteps: NS.storage.get("fairbon.onboarding_steps", {}) || {},
