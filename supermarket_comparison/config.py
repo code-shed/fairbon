@@ -26,6 +26,14 @@ _ENV_ALIASES: Final[dict[str, str]] = {
     "admin_password": "ADMIN_PASSWORD",
     "trust_proxy": "TRUST_PROXY",
     "require_community_sharing": "REQUIRE_COMMUNITY_SHARING",
+    "imprint_name": "IMPRINT_NAME",
+    "imprint_co": "IMPRINT_CO",
+    "imprint_address": "IMPRINT_ADDRESS",
+    "imprint_email": "IMPRINT_EMAIL",
+    "imprint_phone": "IMPRINT_PHONE",
+    "privacy_hoster": "PRIVACY_HOSTER",
+    "privacy_vision_provider": "PRIVACY_VISION_PROVIDER",
+    "privacy_contact_email": "PRIVACY_CONTACT_EMAIL",
     "max_upload_bytes": "MAX_UPLOAD_BYTES",
     "vision_primary_provider": "VISION_PRIMARY_PROVIDER",
     "vision_primary_api_key": "VISION_PRIMARY_API_KEY",
@@ -105,6 +113,18 @@ class Settings(BaseModel):
     #: unless the user brings their own vision key (BYOK). Self-hosters keep
     #: the opt-in. Public flag exposed via /health for the frontend.
     require_community_sharing: bool = False
+
+    # --- legal pages (values come only from the environment) -------------
+    #: Operator details for /impressum and /datenschutz. Never commit real
+    #: names or addresses to the public repository.
+    imprint_name: str = ""
+    imprint_co: str = ""
+    imprint_address: str = ""  # lines separated by ``|`` or ``\n``
+    imprint_email: str = ""
+    imprint_phone: str = ""
+    privacy_hoster: str = ""
+    privacy_vision_provider: str = ""  # empty -> derive from VISION_*_PROVIDER
+    privacy_contact_email: str = ""  # empty -> fall back to imprint_email
 
     standard_price_limit: int = 12
 

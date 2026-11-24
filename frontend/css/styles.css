@@ -1593,3 +1593,27 @@ form.search label.switch {
   white-space: normal; overflow-wrap: anywhere;
 }
 form.search label.switch span { min-width: 0; }
+
+/* --- Legal pages (Impressum / Datenschutz) ----------------------------- */
+.legal-page {
+  max-width: 780px; margin: 0 auto;
+  padding: 24px max(20px, env(safe-area-inset-left))
+           calc(32px + env(safe-area-inset-bottom))
+           max(20px, env(safe-area-inset-right));
+  color: var(--text);
+}
+.legal-page h1 { font-family: var(--font-display); margin: 8px 0 18px; }
+.legal-page h2 { font-family: var(--font-display); font-size: 1.15rem; margin: 26px 0 8px; }
+.legal-page p, .legal-page dd { line-height: 1.65; }
+.legal-page a { color: var(--accent); }
+.legal-page dl { display: grid; grid-template-columns: minmax(90px, auto) 1fr; gap: 4px 14px; }
+.legal-page dt { font-weight: 650; color: var(--muted); }
+.legal-page dd { margin: 0; }
+.legal-back { display: inline-block; min-height: 44px; line-height: 44px; font-weight: 600; }
+.legal-links { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); }
+.settings-legal { margin: 4px 0; font-size: .85rem; }
+.app-legal {
+  margin: 24px 0 8px; text-align: center;
+  font-size: .74rem; color: var(--muted);
+}
+.app-legal a { color: var(--muted); text-decoration: underline; }

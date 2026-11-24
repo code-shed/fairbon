@@ -567,7 +567,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v42" in sw
+    assert "fairbon-v44" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -944,3 +944,12 @@ def test_prebeta_quick_wins_are_wired() -> None:
     assert "Spracheingabe in diesem Browser nicht verfügbar" in prices
     assert "Spracheingabe in diesem Browser nicht verfügbar" in listing
     assert "bindShortcuts" in app
+
+
+def test_legal_links_are_reachable_from_everywhere() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+
+    assert html.count('href="./impressum"') >= 2
+    assert html.count('href="./datenschutz"') >= 2
+    assert 'class="settings-legal"' in html
+    assert 'class="app-legal"' in html

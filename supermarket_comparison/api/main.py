@@ -45,6 +45,7 @@ from .routes import (
     export as export_router,
     history,
     images,
+    legal,
     products,
     receipts as receipts_router,
     stores,
@@ -294,6 +295,8 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
     app.include_router(receipts_router.router, prefix=prefix)
     app.include_router(system.router, prefix=prefix)
     app.include_router(admin_db.router, prefix=prefix)
+    # Legal pages live at the domain root, not under /api/v1.
+    app.include_router(legal.router)
 
     # --- static frontend (PWA + Capacitor webDir) -----------------------
     frontend = _frontend_dir()
@@ -349,6 +352,7 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
         )
 
     RATE_LIMITED_PREFIXES = (prefix + "/", "/")
+    LEGAL_PATHS = frozenset({"/impressum", "/datenschutz"})
     STATIC_PREFIXES = (
         "/css/", "/js/", "/icons/", "/assets/", "/fonts/",
         "/manifest.webmanifest", "/sw.js",
@@ -436,7 +440,9 @@ def create_app(*, aggregator: Aggregator | None = None) -> FastAPI:
             "connect-src 'self'",
         )
 
-        if current.stealth_mode:
+        # Legal pages always carry exactly noindex,nofollow (set by the
+        # route) – never overwrite it with the stricter stealth variant.
+        if current.stealth_mode and path not in LEGAL_PATHS:
             response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
         return response
 
