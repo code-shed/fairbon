@@ -440,8 +440,12 @@
     </section>
 
     <section class="settings-section">
-      <h3>Konto &amp; Daten</h3>
-      <label class="field">Land
+      <button type="button" class="settings-section-toggle" aria-expanded="false" aria-controls="panel-account">
+        <span>Konto &amp; Daten</span>
+        <span class="section-chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="settings-panel" id="panel-account" hidden>
+<label class="field">Land
         <select id="settings-country"><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="CH">Schweiz</option></select>
       </label>
       <label class="switch" for="settings-business">
@@ -462,11 +466,16 @@
       <p class="detail-note" id="settings-token-feedback" role="status" hidden></p>
       <p class="detail-note" id="settings-storage-info"></p>
       <button type="button" class="secondary" id="settings-clear-cache">Temporäre Caches leeren</button>
+      </div>
     </section>
 
     <section class="settings-section">
-      <h3>Allgemein</h3>
-      <label class="field">Monatsbudget (optional, €)
+      <button type="button" class="settings-section-toggle" aria-expanded="false" aria-controls="panel-general">
+        <span>Allgemein</span>
+        <span class="section-chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="settings-panel" id="panel-general" hidden>
+<label class="field">Monatsbudget (optional, €)
         <input type="number" id="settings-budget" min="0" step="1" placeholder="z. B. 250">
       </label>
       <label class="field">Budgetbeginn (Tag des Monats, 1–28)
@@ -491,11 +500,16 @@
       <label class="field">Eigener Vision-API-Key (BYOK, optional)
         <input type="password" id="settings-byok" autocomplete="off" placeholder="überspringt Scan-Limits">
       </label>
+      </div>
     </section>
 
     <section class="settings-section">
-      <h3>Erscheinungsbild</h3>
-      <label class="switch" for="settings-system-theme">
+      <button type="button" class="settings-section-toggle" aria-expanded="false" aria-controls="panel-appearance">
+        <span>Erscheinungsbild</span>
+        <span class="section-chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="settings-panel" id="panel-appearance" hidden>
+<label class="switch" for="settings-system-theme">
         <input type="checkbox" id="settings-system-theme" checked>
         <span>Systemeinstellung verwenden</span>
       </label>
@@ -503,17 +517,24 @@
         <span id="theme-icon" aria-hidden="true"></span>
         <span id="theme-label">Mach das Licht aus</span>
       </button>
+      </div>
     </section>
 
     <section class="settings-section">
-      <h3>Info &amp; Hilfe</h3>
-      <div class="settings-actions">
+      <button type="button" class="settings-section-toggle" aria-expanded="false" aria-controls="panel-info">
+        <span>Info &amp; Hilfe</span>
+        <span class="section-chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="settings-panel" id="panel-info" hidden>
+<div class="settings-actions">
         <a class="secondary btn-link" href="/admin" target="_blank" rel="noopener">Admin</a>
         <button type="button" class="secondary" id="settings-changelog">Versionshinweise (Changelog)</button>
         <button type="button" class="secondary" id="settings-onboarding">Erste Schritte</button>
       </div>
       <p class="detail-note">100 % Open Source · Community-Kassenbons (anonymisiert) · Alle Angaben ohne Gewähr · Kein Datenverkauf</p>
+      </div>
     </section>
+
   </div>
 </div>
 

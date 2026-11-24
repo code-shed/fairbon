@@ -332,11 +332,48 @@ def test_duplicate_warning_is_non_blocking() -> None:
     assert "A failed duplicate check must never block saving" in sheet
 
 
+def test_camera_capture_has_guidance_and_file_fallback() -> None:
+    platform = (FRONTEND / "js" / "platform.js").read_text(encoding="utf-8")
+    sheet = (FRONTEND / "js" / "components" / "add-sheet.js").read_text(
+        encoding="utf-8"
+    )
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+
+    assert "captureReceipt" in platform
+    assert "getUserMedia" in platform and "facingMode" in platform
+    assert "Näher ranhalten" in platform  # live framing guidance
+    assert "camera-frame" in platform and ".camera-frame" in css
+    assert "stream.getTracks()" in platform  # camera released after capture
+    assert "NS.platform.pickImage().then(resolve)" in platform  # fallback
+    assert "NS.platform.captureReceipt()" in sheet
+
+
+def test_settings_sections_are_collapsible() -> None:
+    html = (FRONTEND / "index.html").read_text()
+    app = (FRONTEND / "js" / "app.js").read_text()
+    css = (FRONTEND / "css" / "styles.css").read_text()
+
+    assert html.count('class="settings-section-toggle"') == 4
+    assert html.count('class="settings-panel"') == 4
+    for panel in ("account", "general", "appearance", "info"):
+        assert 'id="panel-' + panel + '" hidden' in html
+    assert "settings-section-toggle" in app  # accordion wiring
+    assert ".settings-section-toggle" in css
+
+
 def test_clearing_the_basket_asks_for_confirmation() -> None:
     listing = (FRONTEND / "js" / "views" / "list.js").read_text()
 
     assert "basketClear.addEventListener" in listing
     assert "Merkliste wirklich leeren?" in listing
+
+
+def test_no_retailer_savings_claims_in_the_ui() -> None:
+    for path in (FRONTEND / "js").rglob("*.js"):
+        assert "gespart" not in path.read_text(encoding="utf-8"), path.name
+    assert "Ersparnis durch Rabatte" not in (
+        FRONTEND / "js" / "views" / "overview.js"
+    ).read_text(encoding="utf-8")
 
 
 def test_require_community_sharing_mode_is_wired() -> None:
@@ -487,7 +524,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v24" in sw
+    assert "fairbon-v27" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -569,8 +606,6 @@ def test_demo_styles_and_badges_exist() -> None:
         ".scan-checklist",
         ".scan-step.done",
         ".demo-receipt",
-        ".summary-savings",
-        ".receipt-savings",
         "@media (prefers-reduced-motion: reduce)",
     ):
         assert selector in css, selector

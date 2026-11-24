@@ -268,6 +268,24 @@
       backdrop.hidden = true;
     }
 
+    // Accordion: only section headings are visible until tapped.
+    var sectionButtons = document.querySelectorAll(".settings-section-toggle");
+    Array.prototype.forEach.call(sectionButtons, function (button) {
+      button.addEventListener("click", function () {
+        var shouldOpen = button.getAttribute("aria-expanded") !== "true";
+        Array.prototype.forEach.call(sectionButtons, function (other) {
+          other.setAttribute("aria-expanded", "false");
+          var panel = $(other.getAttribute("aria-controls"));
+          if (panel) { panel.hidden = true; }
+        });
+        if (shouldOpen) {
+          button.setAttribute("aria-expanded", "true");
+          var panel = $(button.getAttribute("aria-controls"));
+          if (panel) { panel.hidden = false; }
+        }
+      });
+    });
+
     $("settings-open").addEventListener("click", open);
     $("settings-close").addEventListener("click", close);
     backdrop.addEventListener("click", close);

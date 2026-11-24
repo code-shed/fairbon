@@ -54,7 +54,7 @@
     $("add-close").addEventListener("click", close);
     els.backdrop.addEventListener("click", close);
     $("add-photo").addEventListener("click", function () {
-      NS.platform.pickImage().then(function (file) {
+      NS.platform.captureReceipt().then(function (file) {
         if (file) { scanFile(file, true); }
       });
     });
@@ -512,12 +512,6 @@
     }, 0);
   }
 
-  function savingsCents() {
-    return items.reduce(function (sum, item) {
-      return sum + (item.discount_cents || 0);
-    }, 0);
-  }
-
   function renderSummary() {
     els.summary.hidden = false;
     els.summary.textContent = "";
@@ -530,15 +524,6 @@
     total.appendChild(label);
     total.appendChild(value);
     els.summary.appendChild(total);
-
-    var savings = savingsCents();
-    if (savings > 0) {
-      var saved = document.createElement("p");
-      saved.className = "summary-savings";
-      saved.textContent = "Du hast " + euro.format(savings / 100) +
-        " durch Rabatte gespart";
-      els.summary.appendChild(saved);
-    }
   }
 
   function sumCheck(result, workingItems) {

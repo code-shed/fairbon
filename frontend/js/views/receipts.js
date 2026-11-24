@@ -450,17 +450,6 @@
       els.items.appendChild(li);
     });
 
-    var savings = (receipt.items || []).reduce(function (sum, item) {
-      return sum + (item.discount_cents || 0);
-    }, 0);
-    if (savings > 0) {
-      var line = document.createElement("li");
-      line.className = "receipt-savings";
-      line.textContent = "Du hast " + euro.format(savings / 100) +
-        " durch Rabatte gespart";
-      els.items.appendChild(line);
-    }
-
     var fix = document.createElement("button");
     fix.type = "button";
     fix.className = "btn-link fix-link";

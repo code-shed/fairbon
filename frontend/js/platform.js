@@ -32,6 +32,138 @@
       });
     },
 
+    /** Take a photo with the rear camera; falls back to the file picker. */
+    captureReceipt: function () {
+      var devices = global.navigator && global.navigator.mediaDevices;
+      if (!devices || !devices.getUserMedia || !global.isSecureContext) {
+        return NS.platform.pickImage();
+      }
+
+      return new Promise(function (resolve) {
+        var stream = null;
+        var timer = null;
+        var finished = false;
+
+        var overlay = document.createElement("div");
+        overlay.className = "camera-overlay";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-label", "Kassenbon fotografieren");
+
+        var video = document.createElement("video");
+        video.autoplay = true;
+        video.muted = true;
+        video.setAttribute("playsinline", "");
+
+        var frame = document.createElement("div");
+        frame.className = "camera-frame";
+
+        var hint = document.createElement("p");
+        hint.className = "camera-hint";
+        hint.setAttribute("role", "status");
+        hint.textContent = "Kamera wird gestartet …";
+
+        var cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "camera-cancel";
+        cancel.textContent = "Abbrechen";
+
+        var shutter = document.createElement("button");
+        shutter.type = "button";
+        shutter.className = "camera-shutter";
+        shutter.setAttribute("aria-label", "Foto aufnehmen");
+        shutter.textContent = "Foto machen";
+
+        function cleanup() {
+          if (timer) { global.clearInterval(timer); timer = null; }
+          if (stream) {
+            stream.getTracks().forEach(function (track) { track.stop(); });
+            stream = null;
+          }
+          if (overlay.parentNode) { document.body.removeChild(overlay); }
+        }
+
+        function finish(file) {
+          if (finished) { return; }
+          finished = true;
+          cleanup();
+          resolve(file);
+        }
+
+        function guide() {
+          if (!video.videoWidth) { return; }
+          var sample = document.createElement("canvas");
+          sample.width = 32;
+          sample.height = 32;
+          var ctx = sample.getContext("2d");
+          try {
+            ctx.drawImage(video, 0, 0, 32, 32);
+            var data = ctx.getImageData(6, 6, 20, 20).data;
+            var bright = 0;
+            for (var i = 0; i < data.length; i += 4) {
+              var luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+              if (luma > 135) { bright += 1; }
+            }
+            var share = bright / (data.length / 4);
+            hint.textContent = share < 0.35
+              ? "Näher ranhalten – der Bon füllt den Rahmen noch nicht."
+              : share > 0.92
+                ? "Etwas weniger Licht / Blendung vermeiden."
+                : "Gut – Bon im Rahmen. Jetzt fotografieren.";
+          } catch (e) { /* guidance is best effort */ }
+        }
+
+        function take() {
+          if (!video.videoWidth) { return; }
+          var width = video.videoWidth;
+          var height = video.videoHeight;
+          var scale = Math.min(1, 1920 / Math.max(width, height));
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.round(width * scale);
+          canvas.height = Math.round(height * scale);
+          canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(function (blob) {
+            finish(blob ? new File([blob], "receipt-camera.jpg", {
+              type: "image/jpeg"
+            }) : null);
+          }, "image/jpeg", 0.9);
+        }
+
+        cancel.addEventListener("click", function () { finish(null); });
+        shutter.addEventListener("click", take);
+        overlay.addEventListener("click", function (event) {
+          if (event.target === overlay) { finish(null); }
+        });
+
+        overlay.appendChild(video);
+        overlay.appendChild(frame);
+        overlay.appendChild(hint);
+        overlay.appendChild(cancel);
+        overlay.appendChild(shutter);
+        document.body.appendChild(overlay);
+
+        devices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        }).then(function (mediaStream) {
+          stream = mediaStream;
+          video.srcObject = stream;
+          return video.play();
+        }).then(function () {
+          hint.textContent = "Bon vollständig in den Rahmen legen.";
+          timer = global.setInterval(guide, 700);
+        }).catch(function () {
+          // Permission denied / no camera: use the plain file picker.
+          finished = true;
+          cleanup();
+          NS.platform.pickImage().then(resolve);
+        });
+      });
+    },
+
     /** Resolve a data-URL/data-URI image for previews. */
     readAsDataURL: function (file) {
       return new Promise(function (resolve, reject) {
