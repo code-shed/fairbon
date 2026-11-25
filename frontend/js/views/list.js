@@ -9,15 +9,12 @@
   function $(id) { return document.getElementById(id); }
 
   function init() {
-    els.input = $("shopping-list");
-    els.searchAll = $("search-all");
     els.basketItems = $("basket-items");
     els.basketCount = $("basket-count");
     els.basketClear = $("basket-clear");
     els.basketOptimize = $("basket-optimize");
     els.badge = $("list-badge");
     els.optimize = $("optimize");
-    els.mic = $("mic");
     if (!els.basketItems) { return; }
 
     els.basketClear.addEventListener("click", function () {
@@ -32,8 +29,6 @@
       });
     });
     els.basketOptimize.addEventListener("click", optimize);
-    els.searchAll.addEventListener("click", searchAll);
-    if (els.mic) { els.mic.addEventListener("click", startSpeech); }
     var wa = $("share-whatsapp");
     var copy = $("share-copy");
     if (wa) { wa.addEventListener("click", shareWhatsApp); }
@@ -44,22 +39,6 @@
   }
 
   // --- free-text list parser (mirrors the server's rules roughly) ------
-  function splitTerms(text) {
-    var cleaned = String(text || "")
-      .replace(/\b(ich brauche|ich möchte|ich moechte|und|sowie|bitte)\b/gi, " ");
-    return cleaned
-      .split(/[,;\n]+|\s{2,}/)
-      .map(function (part) { return part.trim(); })
-      .filter(function (part) { return part.length >= 2; })
-      .slice(0, 20);
-  }
-
-  function searchAll() {
-    var terms = splitTerms(els.input.value);
-    if (!terms.length) { return; }
-    NS.emit("shopping-search", terms);
-  }
-
   // --- basket -----------------------------------------------------------
   function renderBasket() {
     if (!els.basketItems) { return; }
@@ -241,24 +220,6 @@
   }
 
   // --- speech -----------------------------------------------------------
-  function startSpeech() {
-    if (!global.SpeechRecognition && !global.webkitSpeechRecognition) {
-      NS.toast("Spracheingabe in diesem Browser nicht verfügbar");
-      return;
-    }
-
-    var Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
-    if (!Recognition) { return; }
-    var recognition = new Recognition();
-    recognition.lang = "de-DE";
-    recognition.interimResults = false;
-    recognition.onresult = function (event) {
-      var text = event.results[0][0].transcript || "";
-      els.input.value = els.input.value ? els.input.value + ", " + text : text;
-    };
-    recognition.start();
-  }
-
   NS.views = NS.views || {};
   NS.views.list = { init: init, renderBasket: renderBasket };
 })(window);

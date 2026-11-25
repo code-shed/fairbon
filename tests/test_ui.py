@@ -196,7 +196,7 @@ def test_list_tab_has_basket_and_optimizer(client: TestClient) -> None:
 
     assert 'id="basket-optimize"' in html
     assert 'id="share-whatsapp"' in html
-    assert 'id="mic"' in html
+    assert 'id="mic-search"' in html
 
 
 def test_add_sheet_has_three_paths_and_optin_in_settings(client: TestClient) -> None:
@@ -567,7 +567,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v49" in sw
+    assert "fairbon-v51" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -943,7 +943,6 @@ def test_prebeta_quick_wins_are_wired() -> None:
     assert 'id="share-details"' in html and "renderSharePreview" in sheet
     assert "Alle Artikel auf Liste" in receipts
     assert "Spracheingabe in diesem Browser nicht verfügbar" in prices
-    assert "Spracheingabe in diesem Browser nicht verfügbar" in listing
     assert "bindShortcuts" in app
 
 
@@ -1025,10 +1024,42 @@ def test_dead_shopping_list_apply_button_is_removed() -> None:
 
     assert "Einkaufszettel übernehmen" not in html
     assert 'id="apply-list"' not in html
-    assert "Alle Begriffe suchen" in html
+    assert "Alle Begriffe suchen" not in html
 
     assert "shopping-terms" not in script
     assert "applyList" not in script
     assert "renderChips" not in script
     assert "list-chips" not in script
     assert "list-chips" not in css
+
+
+def test_shopping_list_tab_only_contains_the_basket() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    script = (FRONTEND / "js" / "views" / "list.js").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+
+    for marker in (
+        'id="shopping-list"',
+        'id="search-all"',
+        'id="mic"',
+        "shopping-card",
+        "Alle Begriffe suchen",
+        "Einkaufszettel</label>",
+    ):
+        assert marker not in html, marker
+    assert "Merkliste" in html
+
+    for marker in (
+        "splitTerms",
+        "searchAll",
+        "startSpeech",
+        "shopping-search",
+        "els.input",
+    ):
+        assert marker not in script, marker
+    assert 'NS.on("shopping-search"' not in app
+
+    markers = (".shopping-card", ".shopping-row", ".shopping-actions", ".speech-hint")
+    for marker in markers:
+        assert marker not in css, marker

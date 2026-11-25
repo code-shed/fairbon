@@ -477,10 +477,12 @@
       var tag = document.activeElement ? document.activeElement.tagName : "";
       var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
       if (event.key === "/" && !typing) {
-        var target = location.hash.indexOf("prices") >= 0
-          ? $("query")
-          : (location.hash.indexOf("list") >= 0
-            ? $("shopping-list") : $("receipts-search"));
+        var searching = location.hash.indexOf("prices") >= 0
+          || location.hash.indexOf("list") >= 0;
+        var target = searching ? $("query") : $("receipts-search");
+        if (searching && location.hash.indexOf("list") >= 0) {
+          switchTab("prices");
+        }
         if (target) { event.preventDefault(); target.focus(); }
       }
       if ((event.key === "n" || event.key === "N") && !typing &&
@@ -524,12 +526,6 @@
   }
 
   function bindShopping() {
-    NS.on("shopping-search", function (terms) {
-      if (!terms || !terms.length) { return; }
-      switchTab("prices");
-      NS.views.prices.setQuery(terms[0]);
-      NS.views.prices.searchTerms(terms);
-    });
     NS.on("plz-changed", function () {
       var postal = $("postal-code");
       if (postal) { postal.value = NS.state.postalCode; }
