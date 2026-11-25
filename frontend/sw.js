@@ -1,6 +1,6 @@
 /* FairBon service worker — offline shell only.
    Protected pages, API responses and arbitrary GETs are never cached. */
-var CACHE = "fairbon-v48";
+var CACHE = "fairbon-v49";
 
 /* Only these exact, public static assets may be stored in the shell cache. */
 var CACHE_ONLY_ASSETS = [

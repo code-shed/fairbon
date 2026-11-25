@@ -567,7 +567,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v48" in sw
+    assert "fairbon-v49" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -1016,3 +1016,19 @@ def test_basket_empty_state_is_left_aligned() -> None:
 
     items = css.split(".basket-card .basket-items {", 1)[1].split("}", 1)[0]
     assert "width: 100%" in items
+
+
+def test_dead_shopping_list_apply_button_is_removed() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    script = (FRONTEND / "js" / "views" / "list.js").read_text(encoding="utf-8")
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+
+    assert "Einkaufszettel übernehmen" not in html
+    assert 'id="apply-list"' not in html
+    assert "Alle Begriffe suchen" in html
+
+    assert "shopping-terms" not in script
+    assert "applyList" not in script
+    assert "renderChips" not in script
+    assert "list-chips" not in script
+    assert "list-chips" not in css

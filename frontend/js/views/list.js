@@ -10,8 +10,6 @@
 
   function init() {
     els.input = $("shopping-list");
-    els.chips = $("list-chips");
-    els.apply = $("apply-list");
     els.searchAll = $("search-all");
     els.basketItems = $("basket-items");
     els.basketCount = $("basket-count");
@@ -34,7 +32,6 @@
       });
     });
     els.basketOptimize.addEventListener("click", optimize);
-    els.apply.addEventListener("click", applyList);
     els.searchAll.addEventListener("click", searchAll);
     if (els.mic) { els.mic.addEventListener("click", startSpeech); }
     var wa = $("share-whatsapp");
@@ -55,22 +52,6 @@
       .map(function (part) { return part.trim(); })
       .filter(function (part) { return part.length >= 2; })
       .slice(0, 20);
-  }
-
-  function renderChips(terms) {
-    els.chips.textContent = "";
-    terms.forEach(function (term) {
-      var chip = document.createElement("span");
-      chip.className = "chip";
-      chip.textContent = term;
-      els.chips.appendChild(chip);
-    });
-  }
-
-  function applyList() {
-    var terms = splitTerms(els.input.value);
-    renderChips(terms);
-    NS.emit("shopping-terms", terms);
   }
 
   function searchAll() {
@@ -274,7 +255,6 @@
     recognition.onresult = function (event) {
       var text = event.results[0][0].transcript || "";
       els.input.value = els.input.value ? els.input.value + ", " + text : text;
-      applyList();
     };
     recognition.start();
   }
