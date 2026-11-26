@@ -32,6 +32,24 @@
       });
     },
 
+    /** Open the photo gallery / file manager (never the camera). */
+    pickGallery: function () {
+      return new Promise(function (resolve) {
+        var input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*,application/pdf,.txt";
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.addEventListener("change", function () {
+          var file = input.files && input.files[0] ? input.files[0] : null;
+          document.body.removeChild(input);
+          resolve(file);
+        });
+        input.click();
+      });
+    },
+
     /** Take a photo with the rear camera; falls back to the file picker. */
     captureReceipt: function () {
       var devices = global.navigator && global.navigator.mediaDevices;
@@ -45,7 +63,7 @@
         var finished = false;
 
         var overlay = document.createElement("div");
-        overlay.className = "camera-overlay";
+        overlay.className = "camera-overlay receipt-overlay";
         overlay.setAttribute("role", "dialog");
         overlay.setAttribute("aria-label", "Kassenbon fotografieren");
 
@@ -78,6 +96,9 @@
         shutter.className = "camera-shutter";
         shutter.setAttribute("aria-label", "Foto aufnehmen");
         shutter.textContent = "Foto machen";
+
+        var actions = document.createElement("div");
+        actions.className = "camera-actions";
 
         function cleanup() {
           if (timer) { global.clearInterval(timer); timer = null; }
@@ -130,7 +151,7 @@
           if (finished) { return; }
           finished = true;
           cleanup();
-          NS.platform.pickImage().then(resolve);
+          NS.platform.pickGallery().then(resolve);
         }
 
         function take() {
@@ -159,9 +180,10 @@
         overlay.appendChild(video);
         overlay.appendChild(frame);
         overlay.appendChild(hint);
-        overlay.appendChild(cancel);
-        overlay.appendChild(gallery);
-        overlay.appendChild(shutter);
+        actions.appendChild(gallery);
+        actions.appendChild(shutter);
+        actions.appendChild(cancel);
+        overlay.appendChild(actions);
         document.body.appendChild(overlay);
 
         devices.getUserMedia({

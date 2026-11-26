@@ -373,9 +373,9 @@ def test_camera_capture_has_guidance_and_file_fallback() -> None:
     assert "Näher ranhalten" in platform  # live framing guidance
     assert "camera-frame" in platform and ".camera-frame" in css
     assert "stream.getTracks()" in platform  # camera released after capture
-    assert "camera-gallery" in platform  # bottom-left gallery button
+    assert "camera-gallery" in platform  # gallery inside the action bar
     assert "gallery.addEventListener" in platform
-    assert "NS.platform.pickImage().then(resolve)" in platform  # fallback
+    assert "NS.platform.pickGallery().then(resolve)" in platform  # fallback
     assert "detector.detect(video)" in platform  # live barcode scanning
     assert "EAN manuell eingeben" in platform  # manual is an option
     assert 'askEan("unsupported")' in platform  # honest fallback text
@@ -567,7 +567,7 @@ def test_service_worker_bypasses_http_cache_on_install() -> None:
     sw = (FRONTEND / "sw.js").read_text()
 
     assert 'cache: "reload"' in sw
-    assert "fairbon-v51" in sw
+    assert "fairbon-v52" in sw
 
 
 def test_footer_has_open_source_disclaimer(client: TestClient) -> None:
@@ -1063,3 +1063,29 @@ def test_shopping_list_tab_only_contains_the_basket() -> None:
     markers = (".shopping-card", ".shopping-row", ".shopping-actions", ".speech-hint")
     for marker in markers:
         assert marker not in css, marker
+
+
+def test_camera_overlay_has_action_bar_and_gallery_without_capture() -> None:
+    platform = (FRONTEND / "js" / "platform.js").read_text(encoding="utf-8")
+    css = (FRONTEND / "css" / "styles.css").read_text(encoding="utf-8")
+
+    assert "pickGallery" in platform
+    assert 'input.accept = "image/*,application/pdf,.txt"' in platform
+    assert 'input.setAttribute("capture", "environment")' in platform
+    gallery_body = platform.split("pickGallery: function () {", 1)[1].split(
+        "\n    },", 1
+    )[0]
+    assert "capture" not in gallery_body
+
+    assert "camera-actions" in platform
+    assert "receipt-overlay" in platform
+    bar = css.split(".camera-actions {", 1)[1].split("}", 1)[0]
+    for needle in (
+        "display: flex",
+        "align-items: center",
+        "justify-content: space-between",
+        "gap: 12px",
+        "env(safe-area-inset-bottom)",
+    ):
+        assert needle in bar, needle
+    assert "position: static" in css
